@@ -81,31 +81,62 @@ sub load_tests {
 
             my @tests = ();
 
-            foreach my $target (@{ $test->{target} }) {
-                my $test_obj = perfSONAR_PS::RegularTesting::Test->new();
-
-                my $description;
-                if ($test->{description}) {
-                    $description = $test->{description}." for ".$target;
+            my @directions = ();
+            if ($self->test_modules->{$test->{parameters}->{type}}->allows_bidirectional()) {
+                $logger->debug("Test supports bidirectional");
+                if ($test->{parameters}->{send_only}) {
+                    $logger->debug("Test is send only");
+                    @directions = ( "destination" );
+                }
+                elsif ($test->{parameters}->{receive_only}) {
+                    $logger->debug("Test is receive only");
+                    @directions = ( "source" );
                 }
                 else {
-                    $description = $test->{parameters}->{type} . " test for $target";
+                    $logger->debug("Test is bidirectional");
+                    @directions = ( "source", "destination" );
                 }
-
-                $test_obj->description($description);
-
-                # XXX: verify that the target is valid
-                $test_obj->destination($target);
-
-                my $schedule = $self->parse_schedule({ schedule => $test->{schedule}, config => $config });
-                $test_obj->schedule($schedule);
-
-                my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
-                $test_obj->parameters($parameters);
-
-                push @tests, $test_obj;
+            }
+            else {
+                $logger->debug("Test doesn't support bidirectional, target receives");
+                @directions = ( "destination" );
             }
 
+            foreach my $target (@{ $test->{target} }) {
+                foreach my $direction (@directions) {
+                    my $test_obj = perfSONAR_PS::RegularTesting::Test->new();
+
+                    my $description;
+                    if ($test->{description}) {
+                        $description = $test->{description}." for ".$target;
+                    }
+                    else {
+                        $description = $test->{parameters}->{type} . " test for ".$target;
+                    }
+
+                    $test_obj->description($description);
+
+                    # XXX: verify that the target is valid
+
+                    if ($direction eq "source") {
+                        $test_obj->source($target);
+                    }
+                    else {
+                        $test_obj->destination($target);
+                    }
+
+                    my $schedule = $self->parse_schedule({ schedule => $test->{schedule}, config => $config });
+                    $test_obj->schedule($schedule);
+    
+                    my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
+                    $test_obj->parameters($parameters);
+    
+                    $logger->debug("Adding test: ".$test_obj->description);
+
+                    push @tests, $test_obj;
+                }
+            }
+    
             $self->tests(\@tests);
         };
         if ($@) {

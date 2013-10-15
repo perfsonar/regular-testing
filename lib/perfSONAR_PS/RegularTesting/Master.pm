@@ -49,6 +49,7 @@ sub run {
     };
 
     foreach my $test (@{ $self->config->tests }) {
+        $logger->debug("Spawning test: ".$test->description);
         $self->run_test($test);
     }
 
