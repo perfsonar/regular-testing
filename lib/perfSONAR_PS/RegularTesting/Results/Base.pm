@@ -60,6 +60,9 @@ sub unparse_attribute {
     elsif (UNIVERSAL::can($value, "unparse")) {
         $unparsed_value = $value->unparse;
     }
+    elsif (UNIVERSAL::can($value, "iso8601")) {
+        $unparsed_value = $value->iso8601();
+    }
     else {
         $unparsed_value = $value;
     }

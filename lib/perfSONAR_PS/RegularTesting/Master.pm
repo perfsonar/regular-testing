@@ -1,4 +1,4 @@
-package perfSONAR_PS::RegularTesting::Daemon;
+package perfSONAR_PS::RegularTesting::Master;
 
 use strict;
 use warnings;
@@ -8,13 +8,15 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use Time::HiRes;
+use POSIX;
+
+use perfSONAR_PS::RegularTesting::Config;
 
 use Moose;
 
-has 'config'       => (is => 'rw', isa => 'HashRef');
+has 'config'       => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
 has 'exiting'      => (is => 'rw', isa => 'Bool');
-has 'tests'        => (is => 'rw', isa => 'ArrayRef[HashRef]');
-has 'test_by_pid'  => (is => 'rw', isa => 'HashRef[TestBase]');
+has 'test_by_pid'  => (is => 'rw', isa => 'HashRef[TestBase]', default => sub { {} } );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -24,7 +26,11 @@ sub init {
                                          config => 1,
                                       });
     my $config = $parameters->{config};
-    $self->config($config);
+
+    my $parsed_config = perfSONAR_PS::RegularTesting::Config->new();
+    $parsed_config->init({ config => $config });
+
+    $self->config($parsed_config);
 
     $self->exiting(0);
 
@@ -42,8 +48,12 @@ sub run {
         $self->handle_exit();
     };
 
-    foreach my $test (@{ $self->tests }) {
+    foreach my $test (@{ $self->config->tests }) {
         $self->run_test($test);
+    }
+
+    while (1) {
+       sleep(-1); # infinite sleep
     }
 
     return;
@@ -60,7 +70,7 @@ sub run_test {
 
         unless ($pid) {
             # Child process
-            $test->run();
+            $self->handle_test($test);
             exit 0;
         }
 
@@ -108,11 +118,51 @@ sub handle_exit {
     }
 
     foreach my $pid (keys %{ $self->test_by_pid }) {
-        $logger->info("Child $pid hasn't exited. Sending SIGKILL");
+        $logger->debug("Child $pid hasn't exited. Sending SIGKILL");
         kill('KILL', $pid);
     }
 
-    return;
+    exit(0);
 }
+
+sub handle_test {
+    my ($self, $test) = @_;
+
+    while (1) {
+        my $next_runtime = $test->calculate_next_run_time();
+
+        while ((my $sleep_time = $next_runtime - time) > 0) {
+            $logger->debug("Waiting for ".$sleep_time." seconds for next runtime of test ".$test->description);
+            sleep($sleep_time);
+
+            if ($self->exiting) {
+                exit(0);
+            }
+        }
+
+        if ($self->exiting) {
+            exit(0);
+        }
+
+        $logger->debug("Running test: ".$test->description);
+        my $results;
+        eval {
+            $results = $test->run_once();
+        };
+        if ($@) {
+            my $error = $@;
+            $logger->error("Problem running test: ".$test->description.": ".$error);
+            #$self->error($@);
+        };
+
+        if ($self->exiting) {
+            exit(0);
+        }
+
+        #$self->store_results($results);
+    }
+
+    return;
+};
 
 1;
