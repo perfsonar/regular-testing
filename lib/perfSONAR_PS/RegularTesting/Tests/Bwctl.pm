@@ -74,7 +74,7 @@ override 'run_once' => sub {
         $logger->error($error);
     }
 
-    my $results = $self->parse_output({ stdout => $out, stderr => $err });
+    my $results = $self->build_results({ stdout => $out, stderr => $err });
 
     use Data::Dumper;
 
@@ -83,7 +83,7 @@ override 'run_once' => sub {
     return $results;
 };
 
-sub parse_output {
+sub build_results {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { 
                                          stdout => 1,

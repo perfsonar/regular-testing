@@ -8,7 +8,11 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use Time::HiRes;
+use File::Spec;
+#use File::Path qw(make_path);
+use File::Path;
 use POSIX;
+use JSON;
 
 use perfSONAR_PS::RegularTesting::Config;
 
@@ -17,6 +21,7 @@ use Moose;
 has 'config'       => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
 has 'exiting'      => (is => 'rw', isa => 'Bool');
 has 'test_by_pid'  => (is => 'rw', isa => 'HashRef[TestBase]', default => sub { {} } );
+has 'children'     => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -71,11 +76,14 @@ sub run_test {
 
         unless ($pid) {
             # Child process
+            $0 = "perfSONAR Regular Test: ".$test->description;
+            $self->children({});
             $self->handle_test($test);
             exit 0;
         }
 
         $self->test_by_pid->{$pid} = $test;
+        $self->children->{$pid} = 1;
     };
     if ($@) {
         $logger->error("Problem with test ".$test->description.": ".$@);
@@ -93,6 +101,7 @@ sub handle_child_exit {
         }
 
         delete($self->test_by_pid->{$child});
+        delete($self->children->{$child});
 
         unless ($self->exiting) {
             $logger->debug("Test ".$test->description." exited. Restarting...");
@@ -108,20 +117,25 @@ sub handle_exit {
 
     $self->exiting(1);
 
-    foreach my $pid (keys %{ $self->test_by_pid }) {
-        kill('TERM', $pid);
+    if (scalar(keys %{ $self->children }) > 0) {
+        foreach my $pid (keys %{ $self->children }) {
+            kill('TERM', $pid);
+        }
+
+        # Wait a second for processes to exit
+        my $waketime = time + 1;
+        while ((my $sleep_time = $waketime - time) > 0 and 
+               scalar keys %{ $self->children } > 0) {
+            sleep($sleep_time);
+        }
+
+        foreach my $pid (keys %{ $self->children }) {
+            $logger->debug("Child $pid hasn't exited. Sending SIGKILL");
+            kill('KILL', $pid);
+        }
     }
 
-    # Wait for processes to exit
-    my $waketime = time + 1;
-    while ((my $sleep_time = $waketime - time) > 0) {
-        sleep($sleep_time);
-    }
-
-    foreach my $pid (keys %{ $self->test_by_pid }) {
-        $logger->debug("Child $pid hasn't exited. Sending SIGKILL");
-        kill('KILL', $pid);
-    }
+    $logger->debug("Process '".$0."' exiting");
 
     exit(0);
 }
@@ -160,10 +174,39 @@ sub handle_test {
             exit(0);
         }
 
-        #$self->store_results($results);
+        eval {
+            $self->save_results_file(test => $test, results => $results);
+        };
+        if ($@) {
+            my $error = $@;
+            $logger->error("Problem saving test results: ".$test->description.": ".$error);
+            #$self->error($@);
+        };
     }
 
     return;
 };
+
+sub save_results_file {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { test => 1, results => 1 });
+    my $test    = $parameters->{test};
+    my $results = $parameters->{results};
+
+    my $directory = File::Spec->catdir($self->config->test_result_directory, $test->nonce);
+    my $output_file = File::Spec->catfile($directory, $results->test_time->iso8601().".results");
+
+    my @directory_errors = ();
+    mkpath($directory, { error => \@directory_errors, mode => 0770 });
+    if (scalar(@directory_errors) > 0) {
+        die("Problem creating $directory: ".join(",", @directory_errors));
+    }
+
+    open(OUTPUT_FILE, ">$output_file") or die("Couldn't open $output_file");
+    print OUTPUT_FILE JSON->new->pretty->encode($results->unparse);
+    close(OUTPUT_FILE);
+
+    return;
+}
 
 1;

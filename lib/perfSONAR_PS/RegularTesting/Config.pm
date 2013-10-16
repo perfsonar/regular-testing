@@ -16,9 +16,10 @@ my $logger = get_logger(__PACKAGE__);
 
 use Moose;
 
-has 'tests'             => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Test]');
-has 'scheduler_modules' => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
-has 'test_modules'      => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'tests'                 => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Test]');
+has 'scheduler_modules'     => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'test_modules'          => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'test_result_directory' => (is => 'rw', isa => 'Str', default => "/var/lib/perfsonar/regular_tests");
 
 my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwctl',
@@ -64,7 +65,10 @@ sub load_tests {
 
     unless (ref($config->{test}) eq "ARRAY") {
         $config->{test} = [ $config->{test} ];
+    }
 
+    if ($config->{test_result_directory}) {
+        $self->test_result_directory($config->{test_result_directory});
     }
 
     foreach my $test (@{ $config->{test} }) {
@@ -81,7 +85,7 @@ sub load_tests {
 
             my @tests = ();
 
-            my @directions = ();
+            my @directions;
             if ($self->test_modules->{$test->{parameters}->{type}}->allows_bidirectional()) {
                 $logger->debug("Test supports bidirectional");
                 if ($test->{parameters}->{send_only}) {
