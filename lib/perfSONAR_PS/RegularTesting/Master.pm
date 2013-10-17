@@ -15,13 +15,18 @@ use POSIX;
 use JSON;
 
 use perfSONAR_PS::RegularTesting::Config;
+use perfSONAR_PS::RegularTesting::Master::TesterChild;
+use perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild;
+
+use perfSONAR_PS::RegularTesting::EventQueue::Queue;
+use perfSONAR_PS::RegularTesting::EventQueue::Event;
 
 use Moose;
 
 has 'config'       => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
 has 'exiting'      => (is => 'rw', isa => 'Bool');
-has 'test_by_pid'  => (is => 'rw', isa => 'HashRef[TestBase]', default => sub { {} } );
 has 'children'     => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'event_queue'  => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::EventQueue::Queue');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -37,7 +42,23 @@ sub init {
 
     $self->config($parsed_config);
 
+    $self->event_queue(perfSONAR_PS::RegularTesting::EventQueue::Queue->new());
+
     $self->exiting(0);
+
+    # Initialize the queue directories for these measurement_archives
+    foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
+        unless ($measurement_archive->queue_directory) {
+            my $directory = File::Spec->catdir($self->config->test_result_directory, $measurement_archive->nonce);
+            $measurement_archive->queue_directory($directory);
+        }
+
+        my @directory_errors = ();
+        mkpath($measurement_archive->queue_directory, { error => \@directory_errors, mode => 0770 });
+        if (scalar(@directory_errors) > 0) {
+            die("Problem creating ".$measurement_archive->queue_directory.": ".join(",", @directory_errors));
+        }
+    }
 
     return;
 }
@@ -53,59 +74,73 @@ sub run {
         $self->handle_exit();
     };
 
-    foreach my $test (@{ $self->config->tests }) {
-        $logger->debug("Spawning test: ".$test->description);
-        $self->run_test($test);
+    foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
+        $logger->debug("Spawning measurement archive handler: ".$measurement_archive->description);
+
+        my $child = perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild->new(measurement_archive => $measurement_archive, config => $self->config);
+
+        my $pid = $child->run();
+        $self->children->{$pid} = $child;
     }
 
-    while (1) {
-       sleep(-1); # infinite sleep
+    foreach my $test (values %{ $self->config->tests }) {
+        $logger->debug("Spawning test: ".$test->description);
+
+        my $child = perfSONAR_PS::RegularTesting::Master::TesterChild->new(test => $test, config => $self->config);
+
+        my $event = perfSONAR_PS::RegularTesting::EventQueue::Event->new(time => $test->calculate_next_run_time(), private => { child => $child, action => "start_test" });
+        $self->event_queue->insert($event);
+
+        my $pid = $child->run();
+        $self->children->{$pid} = $child;
     }
+
+    $self->main_loop();
 
     return;
 }
 
-sub run_test {
-    my ($self, $test) = @_;
+sub main_loop {
+    my ($self) = @_;
 
-    eval {
-        my $pid = fork();
-        if ($pid < 0) {
-            die("Couldn't create testing process for ".$test->description);
-        }
+    while (1) {
+       my $event;
+       do {
+           $event = $self->event_queue->pop();
+           sleep(-1) unless $event; # Wait for an event to pop up. XXX: no way for this to happen.
+       } while (not $event);
 
-        unless ($pid) {
-            # Child process
-            $0 = "perfSONAR Regular Test: ".$test->description;
-            $self->children({});
-            $self->handle_test($test);
-            exit 0;
-        }
+       my $sleep_time = $event->time - time;
+       while ($sleep_time > 0) {
+           sleep($sleep_time);
 
-        $self->test_by_pid->{$pid} = $test;
-        $self->children->{$pid} = 1;
-    };
-    if ($@) {
-        $logger->error("Problem with test ".$test->description.": ".$@);
+           $sleep_time = $event->time - time;
+       }
+
+       if ($event->{private}->{action} eq "start_test") {
+           $event->{private}->{child}->start_test();
+       }
+
     }
 }
 
 sub handle_child_exit {
     my ($self) = @_;
 
-    while( ( my $child = waitpid( -1, &WNOHANG ) ) > 0 ) {
-        my $test = $self->test_by_pid->{$child};
-        if (not $test) {
-            $logger->debug("Received SIGCHLD for unknown PID: ".$child);
+    while( ( my $pid = waitpid( -1, &WNOHANG ) ) > 0 ) {
+        my $child = $self->children->{$pid};
+        if (not $child) {
+            $logger->debug("Received SIGCHLD for unknown PID: ".$pid);
             next;
         }
 
-        delete($self->test_by_pid->{$child});
-        delete($self->children->{$child});
+        delete($self->children->{$pid});
 
         unless ($self->exiting) {
-            $logger->debug("Test ".$test->description." exited. Restarting...");
-            $self->run_test($test);
+            $logger->debug("Child exited. Restarting...");
+
+            my $pid = $child->run();
+            $self->children->{$pid} = $child;
         }
     }
 
@@ -119,7 +154,8 @@ sub handle_exit {
 
     if (scalar(keys %{ $self->children }) > 0) {
         foreach my $pid (keys %{ $self->children }) {
-            kill('TERM', $pid);
+            my $child = $self->children->{$pid};
+            $child->kill_child();
         }
 
         # Wait a second for processes to exit
@@ -130,83 +166,15 @@ sub handle_exit {
         }
 
         foreach my $pid (keys %{ $self->children }) {
+            my $child = $self->children->{$pid};
             $logger->debug("Child $pid hasn't exited. Sending SIGKILL");
-            kill('KILL', $pid);
+            $child->kill_child({ force => 1 });
         }
     }
 
     $logger->debug("Process '".$0."' exiting");
 
     exit(0);
-}
-
-sub handle_test {
-    my ($self, $test) = @_;
-
-    while (1) {
-        my $next_runtime = $test->calculate_next_run_time();
-
-        while ((my $sleep_time = $next_runtime - time) > 0) {
-            $logger->debug("Waiting for ".$sleep_time." seconds for next runtime of test ".$test->description);
-            sleep($sleep_time);
-
-            if ($self->exiting) {
-                exit(0);
-            }
-        }
-
-        if ($self->exiting) {
-            exit(0);
-        }
-
-        $logger->debug("Running test: ".$test->description);
-        my $results;
-        eval {
-            $results = $test->run_once();
-        };
-        if ($@) {
-            my $error = $@;
-            $logger->error("Problem running test: ".$test->description.": ".$error);
-            #$self->error($@);
-        };
-
-        if ($self->exiting) {
-            exit(0);
-        }
-
-        eval {
-            $self->save_results_file(test => $test, results => $results);
-        };
-        if ($@) {
-            my $error = $@;
-            $logger->error("Problem saving test results: ".$test->description.": ".$error);
-            #$self->error($@);
-        };
-    }
-
-    return;
-};
-
-sub save_results_file {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, { test => 1, results => 1 });
-    my $test    = $parameters->{test};
-    my $results = $parameters->{results};
-
-    my $directory = File::Spec->catdir($self->config->test_result_directory, $test->nonce);
-    my $output_file = File::Spec->catfile($directory, $results->test_time->iso8601().".results");
-
-    my @directory_errors = ();
-    mkpath($directory, { error => \@directory_errors, mode => 0770 });
-    if (scalar(@directory_errors) > 0) {
-        die("Problem creating $directory: ".join(",", @directory_errors));
-    }
-
-    open(OUTPUT_FILE, ">$output_file") or die("Couldn't open $output_file");
-    print OUTPUT_FILE JSON->new->pretty->encode($results->unparse);
-    close(OUTPUT_FILE);
-
-    return;
 }
 
 1;

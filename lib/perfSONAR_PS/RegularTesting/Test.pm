@@ -8,14 +8,17 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use Digest::MD5;
+use Data::UUID;
 
 use Moose;
 
-has 'description' => (is => 'rw', isa => 'Str');
-has 'source'      => (is => 'rw', isa => 'Str');
-has 'destination' => (is => 'rw', isa => 'Str');
-has 'parameters'  => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Tests::Base');
-has 'schedule'    => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Schedulers::Base');
+has 'id'                   => (is => 'rw', isa => 'Str', default => sub { Data::UUID->new()->create_str() });
+has 'description'          => (is => 'rw', isa => 'Str');
+has 'source'               => (is => 'rw', isa => 'Str');
+has 'destination'          => (is => 'rw', isa => 'Str');
+has 'parameters'           => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Tests::Base');
+has 'schedule'             => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Schedulers::Base');
+has 'measurement_archives' => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::MeasurementArchives::Base]');
 
 my $logger = get_logger(__PACKAGE__);
 

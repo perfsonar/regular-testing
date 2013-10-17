@@ -16,13 +16,19 @@ my $logger = get_logger(__PACKAGE__);
 
 use Moose;
 
-has 'tests'                 => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Test]');
-has 'scheduler_modules'     => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
-has 'test_modules'          => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
-has 'test_result_directory' => (is => 'rw', isa => 'Str', default => "/var/lib/perfsonar/regular_tests");
+has 'tests'                        => (is => 'rw', isa => 'HashRef[perfSONAR_PS::RegularTesting::Test]', default => sub { {} });
+has 'measurement_archives'         => (is => 'rw', isa => 'HashRef[perfSONAR_PS::RegularTesting::MeasurementArchive::Base]', default => sub { {} });
+has 'scheduler_modules'            => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'test_modules'                 => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'measurement_archive_modules'  => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has 'test_result_directory'        => (is => 'rw', isa => 'Str', default => "/var/lib/perfsonar/regular_tests");
 
 my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwctl',
+);
+
+my @measurement_archive_modules = (
+    'perfSONAR_PS::RegularTesting::MeasurementArchives::Null',
 );
 
 my @scheduler_modules = (
@@ -46,10 +52,37 @@ sub init {
         $self->scheduler_modules->{$module->type()} = $module;
     }
 
+    foreach my $module (@measurement_archive_modules) {
+        load $module;
+
+        $self->measurement_archive_modules->{$module->type()} = $module;
+    }
+
+    $self->load_measurement_archives({ config => $config });
+
     my ($status, $res) = $self->load_tests({ config => $config });
     unless ($status == 0) {
         return ($status, $res);
     }
+}
+
+sub load_measurement_archives {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { config => 1 });
+    my $config = $parameters->{config};
+
+    my @measurement_archives = ();
+
+    $config->{measurement_archive} = [] unless ($config->{measurement_archive});
+    $config->{measurement_archive} = [ $config->{measurement_archive} ] unless (ref($config->{measurement_archive}) eq "ARRAY");
+
+    foreach my $measurement_archive (@{ $config->{measurement_archive} }) {
+        my $ma = $self->parse_measurement_archive({ measurement_archive => $measurement_archive });
+        $self->measurement_archives->{$ma->id} = $ma;
+        push @measurement_archives, $ma;
+    }
+
+    return \@measurement_archives;
 }
 
 sub load_tests {
@@ -83,7 +116,7 @@ sub load_tests {
 
             $test->{target} = [ $test->{target} ] unless ref($test->{target}) eq "ARRAY";
 
-            my @tests = ();
+            my %tests = ();
 
             my @directions;
             if ($self->test_modules->{$test->{parameters}->{type}}->allows_bidirectional()) {
@@ -104,6 +137,12 @@ sub load_tests {
             else {
                 $logger->debug("Test doesn't support bidirectional, target receives");
                 @directions = ( "destination" );
+            }
+
+            my $measurement_archives = $self->load_measurement_archives({ config => $test });
+            if (scalar(@$measurement_archives) == 0) {
+                my @global_mas = values %{ $self->measurement_archives() };
+                $measurement_archives = \@global_mas;
             }
 
             foreach my $target (@{ $test->{target} }) {
@@ -135,13 +174,15 @@ sub load_tests {
                     my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
                     $test_obj->parameters($parameters);
     
+                    $test_obj->measurement_archives($measurement_archives);
+
                     $logger->debug("Adding test: ".$test_obj->description);
 
-                    push @tests, $test_obj;
+                    $tests{$test_obj->id} = $test_obj;
                 }
             }
     
-            $self->tests(\@tests);
+            $self->tests(\%tests);
         };
         if ($@) {
             my $msg = "Problem reading test: $@";
@@ -152,6 +193,29 @@ sub load_tests {
     }
 
     return (0, "");
+}
+
+sub parse_measurement_archive {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { measurement_archive => 1 });
+    my $measurement_archive = $parameters->{measurement_archive};
+
+    my $module = $self->measurement_archive_modules->{$measurement_archive->{type}};
+
+    my $attributes = get_class_attributes($module);
+
+    my $object = $module->new();
+
+    foreach my $attr (keys %$attributes) {
+        my $type = $attributes->{$attr};
+
+        my $value = $measurement_archive->{$attr} if (exists $measurement_archive->{$attr});
+
+        my $parsed_value = parse_attribute($value, $type);
+        $object->$attr($parsed_value) if defined $parsed_value;
+    }
+
+    return $object;
 }
 
 sub parse_test_parameters {
