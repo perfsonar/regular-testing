@@ -25,6 +25,8 @@ has 'test_result_directory'        => (is => 'rw', isa => 'Str', default => "/va
 
 my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwctl',
+    'perfSONAR_PS::RegularTesting::Tests::Bwping',
+    'perfSONAR_PS::RegularTesting::Tests::Bwtraceroute',
 );
 
 my @measurement_archive_modules = (
@@ -106,6 +108,8 @@ sub load_tests {
         $self->test_result_directory($config->{test_result_directory});
     }
 
+    my %tests = ();
+
     foreach my $test (@{ $config->{test} }) {
         eval {
             die("Test is missing parameters") unless $test->{parameters};
@@ -117,8 +121,6 @@ sub load_tests {
             die("Test is missing targets") unless $test->{target};
 
             $test->{target} = [ $test->{target} ] unless ref($test->{target}) eq "ARRAY";
-
-            my %tests = ();
 
             my @directions;
             if ($self->test_modules->{$test->{parameters}->{type}}->allows_bidirectional()) {
@@ -191,16 +193,15 @@ sub load_tests {
                     $tests{$test_obj->id} = $test_obj;
                 }
             }
-    
-            $self->tests(\%tests);
         };
         if ($@) {
             my $msg = "Problem reading test: $@";
             $logger->error($msg);
             return (-1, $msg);
         };
-
     }
+
+    $self->tests(\%tests);
 
     return (0, "");
 }
