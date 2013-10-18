@@ -1,4 +1,4 @@
-package perfSONAR_PS::RegularTesting::Parsers::Bwctl;
+package perfSONAR_PS::RegularTesting::Utils;
 
 use strict;
 use warnings;
@@ -7,11 +7,12 @@ our $VERSION = 3.1;
 
 =head1 NAME
 
-perfSONAR_PS::RegularTesting::Parsers::Bwctl;
+perfSONAR_PS::RegularTesting::Utils;
 
 =head1 DESCRIPTION
 
-A module that provides simple functions for parsing bwctl output.
+A module that provides some utility functions used by the Regular Testing
+infrastructure.
 
 =head1 API
 
@@ -19,48 +20,49 @@ A module that provides simple functions for parsing bwctl output.
 
 use base 'Exporter';
 use Params::Validate qw(:all);
-use IO::Socket::SSL;
-use URI::Split qw(uri_split);
-use HTTP::Response;
 use Log::Log4perl qw(get_logger);
 
-use perfSONAR_PS::RegularTesting::Parsers::Iperf qw(parse_iperf_output);
+use Data::Validate::Domain qw(is_hostname);
+use Data::Validate::IP qw(is_ipv4);
+use Net::IP;
 
-our @EXPORT_OK = qw( parse_bwctl_output );
+our @EXPORT_OK = qw( parse_target );
 
 my $logger = get_logger(__PACKAGE__);
 
-use DateTime;
-
-=head2 parse_bwctl_output()
+=head2 parse_target(target => 1)
 
 =cut
 
-use constant JAN_1970 => 0x83aa7e80;
+sub parse_target {
+    my $parameters = validate( @_, { target => 1 });
+    my $target = $parameters->{target};
 
-sub parse_bwctl_output {
-    my $parameters = validate( @_, { stdout  => 1,
-                                     stderr  => 0,
-                                     results => 1, 
-                                   });
-    my $stdout  = $parameters->{stdout};
-    my $stderr  = $parameters->{stderr};
-    my $results = $parameters->{results};
+    my ($address, $port);
 
-    for my $line (split('\n', $stdout)) {
-        if (my ($time) = $line =~ /bwctl: start_tool: ([0-9.]+)/) {
-
-            my $time = $time - JAN_1970;
-
-            $results->test_time(DateTime->from_epoch(epoch => $time));
-        }
+    if ($target =~ /^\[(.*)\]:(\d+)$/) {
+        $address = $1;
+        $port    = $2;
+    }
+    elsif ($target =~ /^\[(.*)\]$/) {
+        $address = $1;
+    }
+    elsif ($target =~ /^(.*):(\d+)$/) {
+        $address = $1;
+        $port    = $2;
+    }
+    else {
+        $address = $target;
     }
 
-    parse_iperf_output({ stdout => $stdout, stderr => $stderr, results => $results });
+    if ( is_ipv4( $address ) or 
+         &Net::IP::ip_is_ipv6( $address ) or 
+         is_hostname( $address ) ) {
 
-    $results->raw_results($stdout);
+        return { address => $address, port => $port };
+    }
 
-    return $results;
+    return;
 }
 
 1;

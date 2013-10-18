@@ -7,12 +7,11 @@ our $VERSION = 3.1;
 
 =head1 NAME
 
-perfSONAR_PS::Utils::HTTPS
+perfSONAR_PS::RegularTesting::Parsers::Iperf;
 
 =head1 DESCRIPTION
 
-A module that provides simple functions for retrieving HTTPS URLs that validate
-the certificate.
+A module that provides simple functions for parsing iperf output
 
 =head1 API
 

@@ -66,9 +66,12 @@ override 'child_main_loop' => sub {
     my ($self) = @_;
 
     while (1) {
-        # Wait to get a signal from the master
-        while (not $self->starting) {
-            sleep(-1);
+	# Unless we're handling our own scheduling, wait to get a signal from
+	# the master
+        unless ($self->test->handles_own_scheduling) {
+            while (not $self->starting) {
+                sleep(-1);
+            }
         }
 
         $self->starting(0);
@@ -77,13 +80,21 @@ override 'child_main_loop' => sub {
 
         my $results;
         eval {
-            $results = $self->test->run_once();
+            $self->test->run_test(
+                handle_results => sub {
+                    my $parameters = validate( @_, { results => 1 });
+                    my $results = $parameters->{results};
+                    $self->save_results(results => $results);
+                }
+            );
         };
         if ($@) {
             my $error = $@;
-            $logger->error("Problem running test: ".$self->test->description.": ".$error);
+            $logger->error("Problem with test: ".$self->test->description.": ".$error);
             #$self->error($@);
         };
+
+        next unless $results;
 
         eval {
             $self->save_results(results => $results);

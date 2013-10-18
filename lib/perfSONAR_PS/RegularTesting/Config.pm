@@ -64,6 +64,8 @@ sub init {
     unless ($status == 0) {
         return ($status, $res);
     }
+
+    return (0, "");
 }
 
 sub load_measurement_archives {
@@ -174,6 +176,14 @@ sub load_tests {
                     my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
                     $test_obj->parameters($parameters);
     
+                    unless ($parameters->valid_target({ target => $target })) {
+                        die("Target ".$target." is not valid for tests of type ".$parameters->type);
+                    }
+
+                    unless ($parameters->valid_schedule({ schedule => $schedule })) {
+                        die("Schedule ".$schedule->type." is not valid for tests of type ".$parameters->type);
+                    }
+
                     $test_obj->measurement_archives($measurement_archives);
 
                     $logger->debug("Adding test: ".$test_obj->description);

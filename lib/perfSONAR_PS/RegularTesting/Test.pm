@@ -22,10 +22,30 @@ has 'measurement_archives' => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::Regula
 
 my $logger = get_logger(__PACKAGE__);
 
-sub run_once {
+sub init_test {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         config => 1,
+                                      });
+    my $config = $parameters->{config};
+
+    return $self->parameters->init_test({ source => $self->source, destination => $self->destination, schedule => $self->schedule, config => $config });
+}
+
+sub run_test {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         handle_results => 0,
+                                      });
+    my $handle_results = $parameters->{handle_results};
+
+    return $self->parameters->run_test({ source => $self->source, destination => $self->destination, schedule => $self->schedule, handle_results => $handle_results });
+}
+
+sub handles_own_scheduling {
     my ($self) = @_;
 
-    return $self->parameters->run_once({ source => $self->source, destination => $self->destination });
+    return $self->parameters->handles_own_scheduling();
 }
 
 sub calculate_next_run_time {

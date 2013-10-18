@@ -38,7 +38,10 @@ sub init {
     my $config = $parameters->{config};
 
     my $parsed_config = perfSONAR_PS::RegularTesting::Config->new();
-    $parsed_config->init({ config => $config });
+    my ($status, $res) = $parsed_config->init({ config => $config });
+    if ($status != 0) {
+        die("Problem with config file: ".$res);
+    }
 
     $self->config($parsed_config);
 
@@ -54,17 +57,16 @@ sub init {
         }
 
         my @directory_errors = ();
-        mkpath($measurement_archive->queue_directory, { error => \@directory_errors, mode => 0770 });
+        mkpath($measurement_archive->queue_directory, { error => \@directory_errors, mode => 0770, verbose => 0 });
         if (scalar(@directory_errors) > 0) {
             die("Problem creating ".$measurement_archive->queue_directory.": ".join(",", @directory_errors));
         }
     }
 
-    return;
-}
-
-sub run {
-    my ($self) = @_;
+    # Initialize the tests before spawning processes
+    foreach my $test (values %{ $self->config->tests }) {
+        $test->init_test(config => $self->config);
+    }
 
     $SIG{CHLD} = sub {
         $self->handle_child_exit();
@@ -74,6 +76,11 @@ sub run {
         $self->handle_exit();
     };
 
+    return;
+}
+
+sub run {
+    my ($self) = @_;
     foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
         $logger->debug("Spawning measurement archive handler: ".$measurement_archive->description);
 
@@ -88,8 +95,9 @@ sub run {
 
         my $child = perfSONAR_PS::RegularTesting::Master::TesterChild->new(test => $test, config => $self->config);
 
-        my $event = perfSONAR_PS::RegularTesting::EventQueue::Event->new(time => $test->calculate_next_run_time(), private => { child => $child, action => "start_test" });
-        $self->event_queue->insert($event);
+        # XXX: no user for the event queue yet
+        #my $event = perfSONAR_PS::RegularTesting::EventQueue::Event->new(time => $test->calculate_next_run_time(), private => { child => $child, action => "start_test" });
+        #$self->event_queue->insert($event);
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
@@ -120,7 +128,6 @@ sub main_loop {
        if ($event->{private}->{action} eq "start_test") {
            $event->{private}->{child}->start_test();
        }
-
     }
 }
 

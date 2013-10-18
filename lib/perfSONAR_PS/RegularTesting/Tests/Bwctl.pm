@@ -5,9 +5,12 @@ use warnings;
 
 our $VERSION = 3.4;
 
-use IPC::Run qw( run );
+use IPC::Run qw( start pump );
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
+use File::Temp qw(tempdir);
+
+use perfSONAR_PS::RegularTesting::Parsers::Bwctl qw(parse_bwctl_output);
 
 use Moose;
 
@@ -23,9 +26,7 @@ has 'duration' => (is => 'rw', isa => 'Int');
 has 'udp_bandwidth' => (is => 'rw', isa => 'Int');
 has 'buffer_length' => (is => 'rw', isa => 'Int');
 
-#use perfSONAR_PS::RegularTesting::Utils qw(parse_target);
-
-use perfSONAR_PS::RegularTesting::Parsers::Bwctl qw(parse_bwctl_output);
+has '_results_directory' => (is => 'rw', isa => 'Str');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -33,24 +34,55 @@ override 'type' => sub { "bwctl" };
 
 override 'allows_bidirectional' => sub { 1 };
 
-override 'valid_target' => sub {
+override 'handles_own_scheduling' => sub { 1; };
+
+override 'valid_schedule' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
-                                         target => 0,
+                                         schedule => 0,
                                       });
-    my $target = $parameters->{target};
+    my $schedule = $parameters->{schedule};
 
-    return 1;
+    return 1 if ($schedule->type eq "regular_intervals");
+
+    return;
 };
 
-override 'run_once' => sub {
+override 'init_test' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
                                          source => 1,
                                          destination => 1,
+                                         schedule => 0,
+                                         config => 0,
                                       });
-    my $source = $parameters->{source};
-    my $destination = $parameters->{destination};
+    my $source         = $parameters->{source};
+    my $destination    = $parameters->{destination};
+    my $schedule       = $parameters->{schedule};
+    my $config         = $parameters->{config};
+
+    my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX", CLEANUP => 1);
+    unless ($results_dir) {
+        die("Couldn't create directory to store results");
+    }
+
+    $self->_results_directory($results_dir);
+
+    return;
+};
+
+override 'run_test' => sub {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, {
+                                         source => 1,
+                                         destination => 1,
+                                         schedule => 0,
+                                         handle_results => 1,
+                                      });
+    my $source         = $parameters->{source};
+    my $destination    = $parameters->{destination};
+    my $schedule       = $parameters->{schedule};
+    my $handle_results = $parameters->{handle_results};
 
     my @cmd = ();
     push @cmd, $self->bwctl_cmd;
@@ -65,32 +97,54 @@ override 'run_once' => sub {
     push @cmd, ( '-b', $self->udp_bandwidth ) if $self->udp_bandwidth;
     push @cmd, ( '-l', $self->buffer_length ) if $self->buffer_length;
 
+    # Add the scheduling information
+    push @cmd, ( '-I', $schedule->interval );
+    push @cmd, ( '-p', '-d', $self->_results_directory );
+
     $logger->debug("Executing ".join(" ", @cmd));
 
-    my ($out, $err);
+    my %handled = ();
+    eval {
+        my ($out, $err);
 
-    unless (run \@cmd, \undef, \$out, \$err) {
-        my $error = "Problem running command: $?";
-        $logger->error($error);
+        my $bwctl_process = start \@cmd, \undef, \$out, \$err;
+        unless ($bwctl_process) {
+            die("Problem running command: $?");
+        }
+
+        while (1) {
+            pump $bwctl_process;
+
+            my @files = split('\n', $out);
+            foreach my $file (@files) {
+                next if $handled{$file};
+
+                my $results = $self->build_results({ file => $file });
+
+                next unless $results;
+
+                $handle_results->(results => $results);
+
+                $handled{$file} = 1;
+            }
+        }
+    };
+    if ($@) {
+        $logger->error("Problem running tests: $@");
     }
-
-    my $results = $self->build_results({ stdout => $out, stderr => $err });
-
-    use Data::Dumper;
-
-    print "Results: ".Dumper($results->unparse)."\n";
-
-    return $results;
 };
 
 sub build_results {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { 
-                                         stdout => 1,
-                                         stderr => 1,
+                                         file => 1,
                                       });
-    my $stdout = $parameters->{stdout};
-    my $stderr = $parameters->{stderr};
+    my $file = $parameters->{file};
+
+    open(FILE, $file) or return;
+    my $contents = do { local $/ = <FILE> };
+    close(FILE);
+    unlink($file);
 
     my $results = perfSONAR_PS::RegularTesting::Results::ThroughputTest->new();
 
@@ -110,7 +164,7 @@ sub build_results {
     $results->bandwidth_limit($self->udp_bandwidth) if $self->udp_bandwidth;
     $results->buffer_length($self->buffer_length) if $self->buffer_length;
 
-    parse_bwctl_output({ stdout => $stdout, stderr => $stderr, results => $results });
+    parse_bwctl_output({ stdout => $contents, results => $results });
 
     return $results;
 }
