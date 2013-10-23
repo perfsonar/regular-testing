@@ -117,11 +117,13 @@ sub save_results {
     my $json = JSON->new->pretty->encode($results->unparse);
 
     foreach my $measurement_archive (@{ $self->test->measurement_archives }) {
-        $logger->debug("Enqueueing job to: ".$measurement_archive->queue_directory);
+        if ($measurement_archive->accepts_results({ type => $results->type })) {
+            $logger->debug("Enqueueing job to: ".$measurement_archive->queue_directory);
 
-        my $queue = IPC::DirQueue->new({ dir => $measurement_archive->queue_directory });
-        unless ($queue->enqueue_string($json)) {
-            $logger->error("Problem saving test results to measurement archive");
+            my $queue = IPC::DirQueue->new({ dir => $measurement_archive->queue_directory });
+            unless ($queue->enqueue_string($json)) {
+                $logger->error("Problem saving test results to measurement archive");
+            }
         }
     }
 

@@ -10,12 +10,17 @@ use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use File::Temp qw(tempdir);
 
+use Data::Validate::IP qw(is_ipv4);
+use Data::Validate::Domain qw(is_hostname);
+use Net::IP;
+
+use perfSONAR_PS::RegularTesting::Results::Endpoint;
+
 use Moose;
 
 extends 'perfSONAR_PS::RegularTesting::Tests::Base';
 
 # Common to all bwctl-ish commands
-has 'tool' => (is => 'rw', isa => 'Str');
 has 'force_ipv4' => (is => 'rw', isa => 'Bool');
 has 'force_ipv6' => (is => 'rw', isa => 'Bool');
 
@@ -120,11 +125,28 @@ override 'run_test' => sub {
             foreach my $file (@files) {
                 next if $handled{$file};
 
-                my $results = $self->build_results({ file => $file });
+                open(FILE, $file) or return;
+                my $contents = do { local $/ = <FILE> };
+                close(FILE);
+
+                my $results = $self->build_results({
+                                                      source => $source,
+                                                      destination => $destination,
+                                                      schedule => $schedule,
+                                                      output => $contents,
+                                                  });
 
                 next unless $results;
 
-                $handle_results->(results => $results);
+                eval {
+                    $handle_results->(results => $results);
+                };
+                if ($@) {
+                    $logger->error("Problem saving results: $results");
+                    next;
+                }
+
+                unlink($file);
 
                 $handled{$file} = 1;
             }
@@ -138,11 +160,40 @@ override 'run_test' => sub {
 sub build_results {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { 
-                                         file => 1,
+                                         source => 1,
+                                         destination => 1,
+                                         schedule => 0,
+                                         output => 1,
                                       });
-    my $file = $parameters->{file};
 
     die("'build_results' should be overridden");
+}
+
+sub build_endpoint {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         address  => 1,
+                                         port     => 0,
+                                         protocol => 0,
+                                      });
+    my $address        = $parameters->{address};
+    my $port           = $parameters->{port};
+    my $protocol       = $parameters->{protocol};
+
+    my $endpoint = perfSONAR_PS::RegularTesting::Results::Endpoint->new();
+
+    if ( is_ipv4( $address ) or 
+         &Net::IP::ip_is_ipv6( $address ) ) {
+        $endpoint->address($address);
+    }
+    else {
+        $endpoint->hostname($address);
+    }
+
+    $endpoint->port($port) if $port;
+    $endpoint->protocol($protocol) if $protocol;
+
+    return $endpoint;
 }
 
 1;

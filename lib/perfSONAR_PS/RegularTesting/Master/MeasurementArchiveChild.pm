@@ -8,6 +8,7 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use IPC::DirQueue;
+use JSON;
 
 use Moose;
 
@@ -20,6 +21,8 @@ my $logger = get_logger(__PACKAGE__);
 override 'child_main_loop' => sub {
     my ($self) = @_;
 
+    $0 = "Regular Testing: Measurement Archive: ".$self->measurement_archive->nonce;
+
     my $queue = IPC::DirQueue->new({ dir => $self->measurement_archive->queue_directory });
     while (1) {
         my $job = $queue->wait_for_queued_job();
@@ -27,7 +30,9 @@ override 'child_main_loop' => sub {
 
         $logger->debug("Got queued job");
 
-        my ($status, $res) = $self->measurement_archive->store_results(results => $results);
+        my $parsed = JSON->new->utf8(1)->decode($results);
+
+        my ($status, $res) = $self->measurement_archive->store_results(results => $parsed);
         if ($status == 0) {
             $job->finish();
         }

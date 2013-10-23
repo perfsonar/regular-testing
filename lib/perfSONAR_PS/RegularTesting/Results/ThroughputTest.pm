@@ -24,6 +24,7 @@ has 'bandwidth_limit' => (is => 'rw', isa => 'Int | Undef');
 has 'buffer_length'   => (is => 'rw', isa => 'Int | Undef');
 has 'time_duration'   => (is => 'rw', isa => 'Int');
 has 'streams'         => (is => 'rw', isa => 'Int | Undef');
+has 'tos_bits'        => (is => 'rw', isa => 'Int | Undef');
 
 has 'test_time'       => (is => 'rw', isa => 'DateTime');
 
@@ -35,5 +36,7 @@ has 'packets_lost'    => (is => 'rw', isa => 'Int | Undef');
 has 'throughput'      => (is => 'rw', isa => 'Num');
 
 has 'raw_results'     => (is => 'rw', isa => 'Str');
+
+override 'type' => sub { return "throughput" };
 
 1;

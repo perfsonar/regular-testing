@@ -8,9 +8,83 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 
+use DateTime::Format::ISO8601;
+
 use Moose;
 
 my $logger = get_logger(__PACKAGE__);
+
+sub type {
+    die("'type' needs to be overridden");
+}
+
+sub parse {
+    my ($class, $description, $strict) = @_;
+
+    my $object = $class->new();
+
+    my $meta = $object->meta;
+
+    for my $attribute ( map { $meta->get_attribute($_) } sort $meta->get_attribute_list ) {
+        my $variable = $attribute->name;
+        my $type     = $attribute->type_constraint;
+        my $writer   = $attribute->get_write_method;
+
+        next unless (defined $description->{$variable});
+
+        my $parsed_value;
+
+        $type = $type.""; # convert to string
+
+        if ($type =~ /ArrayRef\[(.*)\]/) {
+            my $array_type = $1;
+
+            my @array = ();
+            foreach my $element (@{ $description->{$variable} }) {
+                my $parsed;
+                if ($array_type->can("parse")) {
+                    $parsed = $array_type->parse($element, $strict);
+                }
+                else {
+                    $parsed = $element;
+                }
+
+                push @array, $parsed;
+            }
+
+            $parsed_value = \@array;
+        }
+        elsif ($type->can("parse")) {
+            $parsed_value = $type->parse($description->{$variable}, $strict);
+        }
+        elsif ($type eq "DateTime") {
+            $parsed_value = DateTime::Format::ISO8601->parse_datetime($description->{$variable});
+        }
+        elsif (JSON::is_bool($description->{$variable})) {
+            if ($description->{$variable}) {
+                $parsed_value = 1;
+            }
+            else {
+                $parsed_value = 0;
+            }
+        }
+        else {
+            $parsed_value = $description->{$variable};
+        }
+
+        $object->$writer($parsed_value) if defined $parsed_value;
+    }
+
+    if ($strict) {
+        foreach my $key (keys %$description) {
+            unless (UNIVERSAL::can($object, $key)) {
+                die("Unknown attribute: $key");
+            }
+        }
+    }
+
+    return $object;
+}
 
 sub unparse {
     my ($self) = @_;

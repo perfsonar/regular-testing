@@ -24,7 +24,9 @@ use URI::Split qw(uri_split);
 use HTTP::Response;
 use Log::Log4perl qw(get_logger);
 
-use perfSONAR_PS::RegularTesting::Parsers::Iperf qw(parse_iperf_output);
+use perfSONAR_PS::RegularTesting::Parsers::Iperf      qw(parse_iperf_output);
+use perfSONAR_PS::RegularTesting::Parsers::Ping       qw(parse_ping_output);
+use perfSONAR_PS::RegularTesting::Parsers::Traceroute qw(parse_traceroute_output);
 
 our @EXPORT_OK = qw( parse_bwctl_output );
 
@@ -41,26 +43,51 @@ use constant JAN_1970 => 0x83aa7e80;
 sub parse_bwctl_output {
     my $parameters = validate( @_, { stdout  => 1,
                                      stderr  => 0,
-                                     results => 1, 
+                                     tool_type => 1,
                                    });
-    my $stdout  = $parameters->{stdout};
-    my $stderr  = $parameters->{stderr};
-    my $results = $parameters->{results};
+    my $stdout    = $parameters->{stdout};
+    my $stderr    = $parameters->{stderr};
+    my $tool_type = $parameters->{tool_type};
 
+    use Data::Dumper;
+
+    my %results = ();
     for my $line (split('\n', $stdout)) {
-        if (my ($time) = $line =~ /bwctl: start_tool: ([0-9.]+)/) {
+        my $time;
+        if (($time) = $line =~ /bwctl: start_tool: ([0-9.]+)/) {
+            $time = $time - JAN_1970;
 
-            my $time = $time - JAN_1970;
+            $results{start_time} = DateTime->from_epoch(epoch => $time);
+        }
+        elsif (($time) = $line =~ /bwctl: stop_exec: ([0-9.]+)/) {
+            $time = $time - JAN_1970;
 
-            $results->test_time(DateTime->from_epoch(epoch => $time));
+            $results{end_time} = DateTime->from_epoch(epoch => $time);
+        }
+        elsif ($line =~ /bwctl: Unable to connect/) {
+            $results{error} = $line;
+        }
+        else {
+            # XXX: handle other errors. e.g. firewall
         }
     }
 
-    parse_iperf_output({ stdout => $stdout, stderr => $stderr, results => $results });
+    if ($tool_type eq "iperf") {
+        $results{results} = parse_iperf_output({ stdout => $stdout });
+    }
+    elsif ($tool_type eq "traceroute") {
+        $results{results} = parse_traceroute_output({ stdout => $stdout });
+    }
+    elsif ($tool_type eq "ping") {
+        $results{results} = parse_ping_output({ stdout => $stdout });
+    }
+    else {
+        $results{error} = "Unknown tool type: $tool_type";
+    }
 
-    $results->raw_results($stdout);
+    $results{raw_results} = $stdout;
 
-    return $results;
+    return \%results;
 }
 
 1;

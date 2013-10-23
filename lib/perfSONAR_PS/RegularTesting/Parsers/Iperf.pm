@@ -36,16 +36,16 @@ use perfSONAR_PS::RegularTesting::Results::Endpoint;
 =cut
 
 sub parse_iperf_output {
-    my $parameters = validate( @_, { stdout  => 1,
-                                     stderr  => 1,
-                                     results => 1, 
-                                   });
+    my $parameters = validate( @_, { stdout  => 1, });
     my $stdout  = $parameters->{stdout};
-    my $stderr  = $parameters->{stderr};
-    my $results = $parameters->{results};
 
     my %sess_summ = ();
     my ($sess_id, $min_si, $max_ei);
+
+    my ($source_addr, $destination_addr);
+    my ($error);
+    my ($throughput, $jitter, $packets_sent, $packets_lost);
+
 
     for my $line (split('\n', $stdout)) {
         my ( $id, $si, $ei, $txfr, $bw, $jitter, $nlost, $nsent );
@@ -54,12 +54,12 @@ sub parse_iperf_output {
 
         # ignore bogus sessions
         if ( $line =~ m#\(nan\%\)# ) {    #"nan" displayed for number
-            $results->error("Found NaN result");
+            $error = "Found NaN result";
             last;
         }
 
         if ( $line =~ m#read failed: Connection refused# ) {
-            $results->error("Connection refused");
+            $error = "Connection refused";
             last;
         }
 
@@ -67,10 +67,8 @@ sub parse_iperf_output {
         my ($dest_ip, $dest_port, $src_ip, $src_port);
 
         if ( ($dest_ip, $dest_port, $src_ip, $src_port) = ($line =~ m#local ([^ ]+) port (\d+) connected with ([^ ]+) port (\d+)#) ) {
-            $results->destination->address($dest_ip);
-            $results->destination->port($dest_port);
-            $results->source->address($src_ip);
-            $results->source->port($src_port);
+            $destination_addr = $dest_ip;
+            $source_addr = $src_ip;
         }
 
         if (   ( ( $id, $si, $ei, $txfr, $bw, $jitter, $nlost, $nsent ) = ($line =~ m#\[\s*(\d+)\s*\]\s+([0-9\.]+)\s*\-\s*([0-9\.]+)\s+sec\s+(\d+)\s+Bytes\s+(\d+)\s+bits/sec\s+([0-9\.]+)\s+ms\s+(\d+)/(\d+)\s+# ))
@@ -98,7 +96,7 @@ sub parse_iperf_output {
 
     # validation checks for data - throw out nonsense data
     if ( ( keys %sess_summ ) <= 0 ) {
-        $results->error("No results");
+        $error = "No results";
     }
     elsif ( !exists( $sess_summ{"${min_si}_${max_ei}"} ) ) {
         # Average the interval summaries to create an overall summary
@@ -115,19 +113,27 @@ sub parse_iperf_output {
         $summary_jitter = $summary_jitter / (keys %sess_summ);
         $summary_bw     = $summary_bw     / (keys %sess_summ);
 
-        $results->throughput($summary_bw);
-        $results->jitter($summary_jitter);
-        $results->packets_sent($summary_nsent);
-        $results->packets_lost($summary_nlost);
+        $throughput = $summary_bw;
+        $jitter = $summary_jitter;
+        $packets_sent = $summary_nsent;
+        $packets_lost = $summary_nlost;
     }
     else {
-        $results->throughput($sess_summ{"${min_si}_${max_ei}"}->[2]);
-        $results->jitter($sess_summ{"${min_si}_${max_ei}"}->[3]);
-        $results->packets_lost($sess_summ{"${min_si}_${max_ei}"}->[4]);
-        $results->packets_sent($sess_summ{"${min_si}_${max_ei}"}->[5]);
+        $throughput = $sess_summ{"${min_si}_${max_ei}"}->[2];
+        $jitter = $sess_summ{"${min_si}_${max_ei}"}->[3];
+        $packets_lost = $sess_summ{"${min_si}_${max_ei}"}->[4];
+        $packets_sent = $sess_summ{"${min_si}_${max_ei}"}->[5];
     }
 
-    return $results;
+    return {
+        source => $source_addr,
+        destination => $destination_addr,
+        error => $error,
+        throughput => $throughput,
+        jitter => $jitter,
+        packets_sent => $packets_sent,
+        packets_lost => $packets_lost,
+    };
 }
 
 1;

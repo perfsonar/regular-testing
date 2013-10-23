@@ -26,25 +26,21 @@ our @EXPORT_OK = qw( parse_traceroute_output );
 
 my $logger = get_logger(__PACKAGE__);
 
-use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
-use perfSONAR_PS::RegularTesting::Results::Endpoint;
-
 =head2 parse_traceroute_output()
 
 =cut
 
 sub parse_traceroute_output {
-    my $parameters = validate( @_, { stdout  => 1,
-                                     results => 1, 
-                                   });
+    my $parameters = validate( @_, { stdout  => 1, });
     my $stdout  = $parameters->{stdout};
-    my $results = $parameters->{results};
 
     my ($source_addr, $destination_addr);
     my ($packet_size);
     my %traceroutes = ();
 
     my @traceroutes = ();
+
+    my $error;
 
     my $traceroute = Net::Traceroute->new();
     eval {
@@ -88,12 +84,16 @@ sub parse_traceroute_output {
         }
     };
     if ($@) {
-        $logger->error("Problem parsing traceroute output: $@");
+        my $msg = "Problem parsing traceroute output: $@";
+        $logger->error($msg);
+        $error = $msg;
     };
 
-    $results = {
+    my $results = {
         traceroutes   => \@traceroutes
     };
+
+    $results->{error} = $error if $error;
 
     return $results;
 }

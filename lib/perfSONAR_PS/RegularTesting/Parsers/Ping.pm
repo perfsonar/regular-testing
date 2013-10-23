@@ -7,11 +7,11 @@ our $VERSION = 3.1;
 
 =head1 NAME
 
-perfSONAR_PS::RegularTesting::Parsers::Iperf;
+perfSONAR_PS::RegularTesting::Parsers::Ping;
 
 =head1 DESCRIPTION
 
-A module that provides simple functions for parsing iperf output
+A module that provides simple functions for parsing ping output
 
 =head1 API
 
@@ -19,28 +19,19 @@ A module that provides simple functions for parsing iperf output
 
 use base 'Exporter';
 use Params::Validate qw(:all);
-use IO::Socket::SSL;
-use URI::Split qw(uri_split);
-use HTTP::Response;
 use Log::Log4perl qw(get_logger);
 
 our @EXPORT_OK = qw( parse_ping_output );
 
 my $logger = get_logger(__PACKAGE__);
 
-use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
-use perfSONAR_PS::RegularTesting::Results::Endpoint;
-
 =head2 parse_ping_output()
 
 =cut
 
 sub parse_ping_output {
-    my $parameters = validate( @_, { stdout  => 1,
-                                     results => 1, 
-                                   });
+    my $parameters = validate( @_, { stdout  => 1, });
     my $stdout  = $parameters->{stdout};
-    my $results = $parameters->{results};
 
     my ($source_addr, $destination_addr);
     my ($sent, $recv);
@@ -82,7 +73,7 @@ sub parse_ping_output {
         }
     }
 
-    $results = {
+    return {
         source => $source_addr,
         destination => $destination_addr,
         minRtt => $minRtt,
@@ -90,8 +81,6 @@ sub parse_ping_output {
         meanRtt => $meanRtt,
         pings   => \%pings
     };
-
-    return $results;
 }
 
 1;

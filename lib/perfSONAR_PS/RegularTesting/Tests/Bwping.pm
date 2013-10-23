@@ -15,6 +15,7 @@ use Moose;
 extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 
 has 'bwping_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwping');
+has 'tool' => (is => 'rw', isa => 'Str', default => 'ping');
 has 'packet_count' => (is => 'rw', isa => 'Int', default => 10);
 has 'packet_length' => (is => 'rw', isa => 'Int');
 has 'packet_ttl' => (is => 'rw', isa => 'Int', );

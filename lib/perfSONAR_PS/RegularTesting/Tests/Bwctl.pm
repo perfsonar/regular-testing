@@ -17,6 +17,7 @@ use Moose;
 extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 
 has 'bwctl_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwctl');
+has 'tool' => (is => 'rw', isa => 'Str', default => 'iperf');
 has 'use_udp' => (is => 'rw', isa => 'Bool');
 has 'streams' => (is => 'rw', isa => 'Int');
 has 'duration' => (is => 'rw', isa => 'Int');
@@ -56,14 +57,15 @@ override 'build_cmd' => sub {
 override 'build_results' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { 
-                                         file => 1,
+                                         source => 1,
+                                         destination => 1,
+                                         schedule => 0,
+                                         output => 1,
                                       });
-    my $file = $parameters->{file};
-
-    open(FILE, $file) or return;
-    my $contents = do { local $/ = <FILE> };
-    close(FILE);
-    unlink($file);
+    my $source         = $parameters->{source};
+    my $destination    = $parameters->{destination};
+    my $schedule       = $parameters->{schedule};
+    my $output         = $parameters->{output};
 
     my $results = perfSONAR_PS::RegularTesting::Results::ThroughputTest->new();
 
@@ -75,15 +77,39 @@ override 'build_results' => sub {
         $protocol = "tcp";
     }
 
-    $results->source->protocol($protocol);
-    $results->destination->protocol($protocol);
+    # Fill in the information we know about the test
+    $results->source($self->build_endpoint(address => $source, protocol => $protocol));
+    $results->destination($self->build_endpoint(address => $destination, protocol => $protocol));
 
     $results->streams($self->streams);
     $results->time_duration($self->duration);
     $results->bandwidth_limit($self->udp_bandwidth) if $self->udp_bandwidth;
     $results->buffer_length($self->buffer_length) if $self->buffer_length;
 
-    parse_bwctl_output({ stdout => $contents, results => $results });
+    # Add in the raw output
+    $results->raw_results($output);
+
+    # Parse the bwctl output, and add it in
+    my $bwctl_results = parse_bwctl_output({ stdout => $output, tool_type => $self->tool });
+
+    $results->test_time($bwctl_results->{start_time});
+
+    $results->source->address($bwctl_results->{results}->{source}) if $bwctl_results->{results}->{source};
+    $results->destination->address($bwctl_results->{results}->{destination}) if $bwctl_results->{results}->{destination};
+
+    if ($bwctl_results->{error}) {
+        $results->error($bwctl_results->{error});
+    }
+    elsif ($bwctl_results->{results}->{error}) {
+        $results->error($bwctl_results->{results}->{error});
+    }
+
+    $results->test_time($bwctl_results->{start_time});
+
+    $results->throughput($bwctl_results->{results}->{throughput}) if $bwctl_results->{results}->{throughput};
+    $results->jitter($bwctl_results->{results}->{jitter}) if $bwctl_results->{results}->{jitter};
+    $results->packets_sent($bwctl_results->{results}->{packets_sent}) if defined $bwctl_results->{results}->{packets_sent};
+    $results->packets_lost($bwctl_results->{results}->{packets_lost}) if defined $bwctl_results->{results}->{packets_lost};
 
     return $results;
 };
