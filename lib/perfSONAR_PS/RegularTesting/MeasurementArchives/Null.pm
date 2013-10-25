@@ -8,6 +8,8 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 
+use JSON;
+
 use Moose;
 
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::Base';
@@ -37,7 +39,7 @@ override 'store_results' => sub {
                                       });
     my $results = $parameters->{results};
 
-    $logger->debug("Got results: ".$results);
+    $logger->debug("Got results: ".JSON->new->pretty->encode($results));
 
     return (0, "");
 };

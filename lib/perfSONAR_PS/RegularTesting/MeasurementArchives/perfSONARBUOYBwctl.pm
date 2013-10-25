@@ -17,14 +17,7 @@ use Moose;
 
 use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
 
-extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::Base';
-
-has 'host' => (is => 'rw', isa => 'Str');
-has 'username' => (is => 'rw', isa => 'Str');
-has 'password' => (is => 'rw', isa => 'Str');
-has 'database' => (is => 'rw', isa => 'Str');
-
-has '_dates_initialized' => (is => 'rw', isa => 'HashRef', default => sub { {} });
+extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -38,16 +31,6 @@ override 'accepts_results' => sub {
     $logger->debug("accepts_results: $type");
 
     return ($type eq "throughput");
-};
-
-override 'nonce' => sub {
-    my ($self) = @_;
-
-    my $nonce = "";
-    $nonce .= ($self->host?$self->host:"localhost");
-    $nonce .= "_".$self->database;
-
-    return $nonce;
 };
 
 override 'store_results' => sub {
@@ -130,7 +113,7 @@ sub add_testspec {
     );
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
-                                              type => "testspec",
+                                              table => "TESTSPEC",
                                               date => $results->test_time,
                                               properties => \%testspec_properties,
                                              );
@@ -146,7 +129,7 @@ sub add_testspec {
         $testspec_properties{tspec_id} = $self->build_id(\%testspec_properties);
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
-                                                type => "testspec",
+                                                table => "TESTSPEC",
                                                 date => $results->test_time,
                                                 properties => \%testspec_properties,
                                                );
@@ -187,7 +170,7 @@ sub add_endpoint {
     }
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
-                                              type => "nodes",
+                                              table => "NODES",
                                               date => $date,
                                               properties => \%node_properties,
                                              );
@@ -206,7 +189,7 @@ sub add_endpoint {
         $node_properties{node_id} = $self->build_id(\%node_properties);
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
-                                                type => "nodes",
+                                                table => "NODES",
                                                 date => $date,
                                                 properties => \%node_properties,
                                                );
@@ -254,7 +237,7 @@ sub add_data {
     $logger->debug("Data Properties: ".Dumper(\%data_properties));
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
-                                            type => "data",
+                                            table => "DATA",
                                             date => $results->test_time,
                                             properties => \%data_properties,
                                            );
@@ -268,31 +251,9 @@ sub add_data {
     return (0, "");
 }
 
-sub build_id {
-    my ($self, $properties) = @_;
-
-    my $md5 = Digest::MD5->new();
-
-    foreach my $attr (keys %$properties) {
-        $md5->add($attr);
-        $md5->add($properties->{$attr}) if defined $properties->{$attr};
-    }
-
-    my $hex = $md5->hexdigest;
-    $hex = substr($hex, 0, 8);
-
-    return hex($hex);
-}
-
-sub get_dbh {
-    my ($self) = @_;
-
-    return DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
-}
-
 sub tables {
     return {
-        "testspec" => {
+        "TESTSPEC" => {
             columns => [
                 { name => 'tspec_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'description', type => "TEXT(1024)" },
@@ -306,7 +267,7 @@ sub tables {
             ],
             primary_key => "tspec_id",
         },
-        "nodes" => {
+        "NODES" => {
             columns => [
                 { name => 'node_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'node_name', type => "TEXT(128)" },
@@ -317,7 +278,7 @@ sub tables {
             ],
             PRIMARY_KEY => "node_id",
         },
-        "data" => {
+        "DATA" => {
             columns => [
                 { name => 'send_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'recv_id', type => "INT UNSIGNED NOT NULL" },
@@ -332,7 +293,7 @@ sub tables {
             primary_key => "ti,send_id,recv_id",
             indexes => [ "send_id", "recv_id", "tspec_id" ],
         },
-        "dates" => {
+        "DATES" => {
             columns => [
                 { name => 'year', type => "INT" },
                 { name => 'month', type => "INT" },
@@ -343,237 +304,11 @@ sub tables {
     };
 }
 
-sub add_element {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, {
-                                         dbh  => 1,
-                                         type => 1,
-                                         date => 1,
-                                         ignore => 0,
-                                         properties => 1,
-                                      });
-    my $dbh = $parameters->{dbh};
-    my $type = $parameters->{type};
-    my $date = $parameters->{date};
-    my $ignore = $parameters->{ignore};
-    my $properties = $parameters->{properties};
-
-    unless ($self->tables->{$type}) {
-        my $msg = "Unknown element type: $type";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    my ($status, $res) = $self->initialize_tables({ dbh => $dbh, date => $date });
-    unless ($status == 0) {
-        my $msg = "Couldn't add element: $res";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    my $table_prefix = $self->time_prefix($date);
-
-    my $table = $table_prefix."_".uc($type);
-
-    return $self->_add_element({ dbh => $dbh, table => $table, ignore => $ignore, properties => $properties });
-}
-
-sub _add_element {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, {
-                                         dbh => 1,
-                                         table => 1,
-                                         ignore => 0,
-                                         properties => 1,
-                                      });
-    my $dbh = $parameters->{dbh};
-    my $table = $parameters->{table};
-    my $ignore = $parameters->{ignore};
-    my $properties = $parameters->{properties};
-
-    my @keys = keys %$properties;
-    my @parameters = map { $properties->{$_} } @keys;
-    my @parameter_pointers = map { "?" } @keys;
-
-    my $ignore_parameter = $ignore?"IGNORE":"";
-
-    my $insert_query = "INSERT ".$ignore_parameter." INTO ".$table." (".join(",", @keys).") VALUES (".join(",", @parameter_pointers).")";
-
-    my $sth = $dbh->prepare($insert_query);
-
-    unless ($sth->execute(@parameters)) {
-        my $msg = "Problem adding element to database: $DBI::errstr";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    return (0, "");
-}
-
-sub query_element {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, {
-                                         dbh  => 1,
-                                         type => 1,
-                                         date => 1,
-                                         properties => 1,
-                                      });
-    my $dbh  = $parameters->{dbh};
-    my $type = $parameters->{type};
-    my $date = $parameters->{date};
-    my $properties = $parameters->{properties};
-
-    unless ($self->tables->{$type}) {
-        my $msg = "Unknown element type: $type";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    my ($status, $res) = $self->initialize_tables({ dbh => $dbh, date => $date });
-    unless ($status == 0) {
-        my $msg = "Couldn't add element: $res";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    # XXX: verify the parameters before executing
-
-    my $table_prefix = $self->time_prefix($date);
-
-    my $table = $table_prefix."_".uc($type);
-
-    return $self->_query_element({ dbh => $dbh, table => $table, properties => $properties });
-}
-
-sub _query_element {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, {
-                                         dbh => 1,
-                                         table => 1,
-                                         properties => 1,
-                                      });
-    my $dbh = $parameters->{dbh};
-    my $table = $parameters->{table};
-    my $properties = $parameters->{properties};
-
-    my $query = "SELECT * FROM $table";
-    my $query_concat = "WHERE";
-    my @query_parameters = ();
-    foreach my $property (keys %{ $properties }) {
-        if (defined $properties->{$property}) {
-            $query .= " ".$query_concat." ".$property."=?";
-            push @query_parameters, $properties->{$property};
-        }
-        else {
-            $query .= " ".$query_concat." ".$property." IS NULL";
-        }
-        $query_concat = "AND";
-    }
-
-    $logger->debug("Query: $query");
-    use Data::Dumper;
-    $logger->debug("Query Parameters: ".Dumper(\@query_parameters));
-
-    my $sth = $dbh->prepare($query);
-    unless ($sth) {
-        my $msg = "Problem preparing query";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    unless ($sth->execute(@query_parameters)) {
-        my $msg = "Problem executing query";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    my $results = $sth->fetchall_arrayref({});
-    unless ($results) {
-        my $msg = "Problem with query";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    use Data::Dumper;
-    $logger->debug("Query Results: ".Dumper($results));
-
-    return (0, $results);
-}
-
-sub time_prefix {
+override 'time_prefix' => sub {
     my ($self, $date) = @_;
 
     return sprintf( '%4.4d%2.2d', $date->year(), $date->month() );
-}
-
-sub initialize_tables {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, { dbh => 1, date => 1 });
-    my $dbh     = $parameters->{dbh};
-    my $date    = $parameters->{date};
-
-    my $table_prefix = $self->time_prefix($date);
-
-    return (0, "") if $self->_dates_initialized->{$table_prefix};
-
-    foreach my $table_type (keys %{ $self->tables }) {
-        my $table_name;
-        if ($self->tables->{$table_type}->{static}) {
-            $table_name = uc($table_type);
-        }
-        else {
-            $table_name = $table_prefix."_".uc($table_type);
-        }
-
-        my $columns = $self->tables->{$table_type}->{columns};
-
-        my $table_description = join(",", map { $_->{name}." ".$_->{type} } @$columns);
-
-        $logger->debug("Table Description: $table_description");
-
-        if ($self->tables->{$table_type}->{primary_key}) {
-            $table_description .= ", PRIMARY KEY(".$self->tables->{$table_type}->{primary_key}.")";
-        }
-
-        if ($self->tables->{$table_type}->{indexes}) {
-            foreach my $index (@{ $self->tables->{$table_type}->{indexes} }) {
-                $table_description .= ", INDEX(".$index.")";
-            }
-        }
-
-        my $sql = "CREATE TABLE IF NOT EXISTS $table_name ($table_description)";
-        $logger->debug("SQL: $sql");
-
-        unless ($dbh->do($sql)) {
-            my $msg = "Couldn't create $table_name: $DBI::errstr";
-            $logger->error($msg);
-            return (-1, $msg);
-        }
-    }
-
-    # Add the dates to the table
-    my %date_properties = (
-        year => $date->year(),
-        month => $date->month(),
-    );
-
-    foreach my $column (@{ $self->tables->{dates}->{columns} }) {
-        if ($column->{name} eq "day") {
-            $date_properties{day} = $date->day();
-        }
-    }
-
-    my ($status, $res) = $self->_add_element({ dbh => $dbh, table => "DATES", ignore => 1, properties => \%date_properties });
-    if ($status != 0) {
-        my $msg = "Problem adding dates to DATES table";
-        $logger->error($msg);
-        return (-1, $msg);
-    }
-
-    $self->_dates_initialized->{$table_prefix} = 1;
-
-    return (0, "");
-}
+};
 
 use constant JAN_1970 => 0x83aa7e80;    # offset in seconds
 my $scale = uint64(2)**32;

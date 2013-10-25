@@ -22,7 +22,7 @@ extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 has 'bwping_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwping');
 has 'tool' => (is => 'rw', isa => 'Str', default => 'ping');
 has 'packet_count' => (is => 'rw', isa => 'Int', default => 10);
-has 'packet_length' => (is => 'rw', isa => 'Int');
+has 'packet_length' => (is => 'rw', isa => 'Int', default => 1000);
 has 'packet_ttl' => (is => 'rw', isa => 'Int', );
 has 'inter_packet_time' => (is => 'rw', isa => 'Int', );
 
@@ -72,8 +72,11 @@ override 'build_results' => sub {
     my $results = perfSONAR_PS::RegularTesting::Results::PingTest->new();
 
     # Fill in the information we know about the test
-    $results->source($self->build_endpoint(address => $source ));
-    $results->destination($self->build_endpoint(address => $destination ));
+    $results->source($self->build_endpoint(address => $source, protocol => "icmp" ));
+    $results->destination($self->build_endpoint(address => $destination, protocol => "icmp" ));
+
+    use Data::Dumper;
+    $logger->debug("Results: ".Dumper($results->unparse));
 
     $results->packet_count($self->packet_count);
     $results->packet_size($self->packet_length);
@@ -88,8 +91,11 @@ override 'build_results' => sub {
 
     my @pings = ();
 
+    $results->packets_sent($bwctl_results->{results}->{sent});
+    $results->packets_received($bwctl_results->{results}->{recv});
+
     if ($bwctl_results->{results}->{pings}) {
-        foreach my $ping (values %{ $bwctl_results->{results}->{pings} }) {
+        foreach my $ping (@{ $bwctl_results->{results}->{pings} }) {
             my $datum = perfSONAR_PS::RegularTesting::Results::PingTestDatum->new();
             $datum->sequence_number($ping->{seq}) if defined $ping->{seq};
             $datum->ttl($ping->{ttl}) if defined $ping->{ttl};
@@ -110,6 +116,9 @@ override 'build_results' => sub {
     $results->test_time($bwctl_results->{start_time});
 
     $results->raw_results($output);
+
+    use Data::Dumper;
+    $logger->debug("Results: ".Dumper($results->unparse));
 
     return $results;
 };

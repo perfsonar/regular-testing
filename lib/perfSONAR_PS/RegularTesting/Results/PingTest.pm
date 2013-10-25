@@ -28,7 +28,9 @@ has 'test_time'       => (is => 'rw', isa => 'DateTime');
 
 has 'error'           => (is => 'rw', isa => 'Str');
 
-has 'pings'           => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::PingTestDatum]', default => sub { [] });
+has 'pings'            => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::PingTestDatum]', default => sub { [] });
+has 'packets_sent'     => (is => 'rw', isa => 'Int');
+has 'packets_received' => (is => 'rw', isa => 'Int');
 
 has 'raw_results'     => (is => 'rw', isa => 'Str');
 

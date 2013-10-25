@@ -36,7 +36,7 @@ sub parse_ping_output {
     my ($source_addr, $destination_addr);
     my ($sent, $recv);
     my ($minRtt, $maxRtt, $meanRtt);
-    my %pings = ();
+    my @pings = ();
 
     for my $line (split('\n', $stdout)) {
         # PING www.slashdot.org (216.34.181.48) from 207.75.165.146 : 56(84) bytes of data.
@@ -53,7 +53,7 @@ sub parse_ping_output {
         if ($line =~ /(\d+) bytes from (.*): icmp_seq=(\d+) ttl=(\d+) time=([0-9.]*) ms/) {
             my ($bytes, $address, $seq, $ttl, $delay) = ($1, $2, $3, $4, $5);
 
-            $pings{$seq} = {
+            push @pings, {
                 seq => $seq,
                 ttl => $ttl,
                 delay => $delay,
@@ -76,10 +76,12 @@ sub parse_ping_output {
     return {
         source => $source_addr,
         destination => $destination_addr,
+        sent   => $sent,
+        recv   => $recv,
         minRtt => $minRtt,
         maxRtt => $maxRtt,
         meanRtt => $meanRtt,
-        pings   => \%pings
+        pings   => \@pings
     };
 }
 
