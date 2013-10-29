@@ -25,8 +25,11 @@ use HTTP::Response;
 use Log::Log4perl qw(get_logger);
 
 use perfSONAR_PS::RegularTesting::Parsers::Iperf      qw(parse_iperf_output);
+use perfSONAR_PS::RegularTesting::Parsers::Owamp      qw(parse_owamp_raw_output);
 use perfSONAR_PS::RegularTesting::Parsers::Ping       qw(parse_ping_output);
 use perfSONAR_PS::RegularTesting::Parsers::Traceroute qw(parse_traceroute_output);
+
+use perfSONAR_PS::RegularTesting::Utils qw(owptstampi2datetime);
 
 our @EXPORT_OK = qw( parse_bwctl_output );
 
@@ -38,8 +41,6 @@ use DateTime;
 
 =cut
 
-use constant JAN_1970 => 0x83aa7e80;
-
 sub parse_bwctl_output {
     my $parameters = validate( @_, { stdout  => 1,
                                      stderr  => 0,
@@ -49,20 +50,23 @@ sub parse_bwctl_output {
     my $stderr    = $parameters->{stderr};
     my $tool_type = $parameters->{tool_type};
 
-    use Data::Dumper;
-
     my %results = ();
     for my $line (split('\n', $stdout)) {
         my $time;
         if (($time) = $line =~ /bwctl: start_tool: ([0-9.]+)/) {
-            $time = $time - JAN_1970;
-
-            $results{start_time} = DateTime->from_epoch(epoch => $time);
+            $results{start_time} = owptstampi2datetime($time);
         }
         elsif (($time) = $line =~ /bwctl: stop_exec: ([0-9.]+)/) {
-            $time = $time - JAN_1970;
-
-            $results{end_time} = DateTime->from_epoch(epoch => $time);
+            $results{end_time} = owptstampi2datetime($time);
+        }
+        elsif (($time) = $line =~ /bwctl: stop_tool: ([0-9.]+)/) {
+            $results{end_time} = owptstampi2datetime($time);
+        }
+        elsif (($time) = $line =~ /bwctl: run_tool: receiver: (.*)/) {
+            $results{receiver_address} = $1;
+        }
+        elsif (($time) = $line =~ /bwctl: run_tool: sender: (.*)/) {
+            $results{sender_address} = $1;
         }
         elsif ($line =~ /bwctl: Unable to connect/) {
             $results{error} = $line;
@@ -80,6 +84,9 @@ sub parse_bwctl_output {
     }
     elsif ($tool_type eq "ping") {
         $results{results} = parse_ping_output({ stdout => $stdout });
+    }
+    elsif ($tool_type eq "owamp") {
+        $results{results} = parse_owamp_raw_output({ stdout => $stdout });
     }
     else {
         $results{error} = "Unknown tool type: $tool_type";

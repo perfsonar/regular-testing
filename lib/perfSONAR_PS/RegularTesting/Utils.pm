@@ -26,14 +26,20 @@ use Data::Validate::Domain qw(is_hostname);
 use Data::Validate::IP qw(is_ipv4);
 use Net::IP;
 
-our @EXPORT_OK = qw( parse_target );
+use Math::Int64 qw(uint64 uint64_to_number);
+
+use DateTime;
+
+our @EXPORT_OK = qw( parse_target owpdelay owptime2datetime owptstampi2datetime datetime2owptime datetime2owptstampi );
 
 my $logger = get_logger(__PACKAGE__);
+
+use constant JAN_1970 => 0x83aa7e80;    # offset in seconds
+my $scale = 2**32;
 
 =head2 parse_target(target => 1)
 
 =cut
-
 sub parse_target {
     my $parameters = validate( @_, { target => 1 });
     my $target = $parameters->{target};
@@ -63,6 +69,85 @@ sub parse_target {
     }
 
     return;
+}
+
+=head2 owpdelay($start, $end)
+
+=cut
+sub owpdelay {
+    my ($start, $end) = @_;
+
+    return ($end - $start)/1_000_000_000.0;
+}
+
+#=head2 owptime2datetime($owptime)
+#
+#=cut
+#sub owptime2datetime {
+#    my ($owptime) = @_;
+#
+#    my $tstamp = uint64($owptime);
+#	my $frac = uint64($owptime);
+#
+#    $tstamp = uint64_to_number(($tstamp >> 32) & 0xFFFFFFFF);
+#	$frac   = uint64_to_number($tstamp & 0xFFFFFFFF) / 1_000_000_000.0;
+#
+#    print "Tstamp: $tstamp Frac: $frac\n";
+#
+#    while ($frac >= 1) {
+#        $frac -= 1;
+#        $tstamp += 1;
+#    }
+#
+#    print "Tstamp: $tstamp Frac: $frac\n";
+#
+#    $tstamp -= JAN_1970;
+#
+#    print "Tstamp: $tstamp Frac: $frac\n";
+#
+#    print "OWPTime: ".$owptime."\n";
+#    my $datetime = DateTime->from_epoch(epoch => $tstamp);
+#    $datetime->set_nanosecond($frac * 1_000_000_000);
+#    print "Time: ".$datetime->epoch() . '.' .  $datetime->nanosecond()."\n";
+#    return $datetime;
+#}
+
+=head2 owptime2datetime($owptime)
+
+=cut
+sub owptstampi2datetime{
+    my ($owptime) = @_;
+
+    $owptime -= JAN_1970;
+
+    return DateTime->from_epoch(epoch => $owptime);
+}
+
+
+
+=head2 datetime2owptime($datetime)
+
+=cut
+sub datetime2owptime {
+    my ($datetime) = @_;
+
+    my $bigtime = uint64($datetime->epoch());
+    $bigtime = ($bigtime + JAN_1970) * $scale;
+    print "Big Time: $bigtime\n";
+    $bigtime += $datetime->nanosecond();
+    $bigtime =~ s/^\+//;
+    return uint64_to_number($bigtime);
+}
+
+=head2 datetime2owptstampi($datetime)
+
+=cut
+sub datetime2owptstampi{
+    my ($datetime) = @_;
+
+    my $bigtime = uint64(datetime2owptime($datetime));
+
+    return uint64_to_number($bigtime>>32);
 }
 
 1;

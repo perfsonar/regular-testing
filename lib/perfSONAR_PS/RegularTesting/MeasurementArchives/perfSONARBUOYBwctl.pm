@@ -8,7 +8,6 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 
-use Math::Int64 qw(uint64 uint64_to_number);
 use Digest::MD5;
 
 use DBI;
@@ -309,26 +308,5 @@ override 'time_prefix' => sub {
 
     return sprintf( '%4.4d%2.2d', $date->year(), $date->month() );
 };
-
-use constant JAN_1970 => 0x83aa7e80;    # offset in seconds
-my $scale = uint64(2)**32;
-
-sub datetime2owptime {
-    my ($datetime) = @_;
-
-    my $bigtime = uint64($datetime->epoch());
-    $bigtime = ($bigtime + JAN_1970) * $scale;
-    $bigtime =~ s/^\+//;
-    return uint64_to_number($bigtime);
-}
-
-sub datetime2owptstampi{
-    my ($datetime) = @_;
-
-    my $bigtime = uint64(datetime2owptime($datetime));
-
-    return uint64_to_number($bigtime>>32);
-}
-
 
 1;
