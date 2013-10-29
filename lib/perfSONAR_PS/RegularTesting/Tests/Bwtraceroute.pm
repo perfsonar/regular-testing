@@ -10,6 +10,10 @@ use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use File::Temp qw(tempdir);
 
+use perfSONAR_PS::RegularTesting::Results::TracerouteTest;
+
+use perfSONAR_PS::RegularTesting::Parsers::Bwctl qw(parse_bwctl_output);
+
 use Moose;
 
 extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
@@ -47,42 +51,70 @@ override 'build_cmd' => sub {
     push @cmd, ( '-M', $self->packet_max_ttl ) if $self->packet_max_ttl;
     push @cmd, ( '-l', $self->packet_length ) if $self->packet_length;
 
+    # Prevent traceroute from doing DNS lookups since Net::Traceroute doesn't
+    # like them...
+    push @cmd, ( '-y', 'a' );
+
     return @cmd;
 };
 
 override 'build_results' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { 
-                                         file => 1,
+                                         source => 1,
+                                         destination => 1,
+                                         schedule => 0,
+                                         output => 1,
                                       });
-    my $file = $parameters->{file};
+    my $source         = $parameters->{source};
+    my $destination    = $parameters->{destination};
+    my $schedule       = $parameters->{schedule};
+    my $output         = $parameters->{output};
 
-    open(FILE, $file) or return;
-    my $contents = do { local $/ = <FILE> };
-    close(FILE);
-    unlink($file);
+    my $results = perfSONAR_PS::RegularTesting::Results::TracerouteTest->new();
 
-    my $results = perfSONAR_PS::RegularTesting::Results::ThroughputTest->new();
+    # Fill in the information we know about the test
+    $results->source($self->build_endpoint(address => $source, protocol => "icmp" ));
+    $results->destination($self->build_endpoint(address => $destination, protocol => "icmp" ));
 
-#    my $protocol;
-#    if ($self->use_udp) {
-#        $protocol = "udp";
-#    }
-#    else {
-#        $protocol = "tcp";
-#    }
-#
-#    $results->source->protocol($protocol);
-#    $results->destination->protocol($protocol);
-#
-#    $results->streams($self->streams);
-#    $results->time_duration($self->duration);
-#    $results->bandwidth_limit($self->udp_bandwidth) if $self->udp_bandwidth;
-#    $results->buffer_length($self->buffer_length) if $self->buffer_length;
-#
-#    parse_bwctl_output({ stdout => $contents, results => $results });
+    $results->packet_size($self->packet_length);
+    $results->packet_first_ttl($self->packet_max_ttl);
+    $results->packet_max_ttl($self->packet_max_ttl);
 
-    $results->raw_results($contents);
+    # Parse the bwctl output, and add it in
+    my $bwctl_results = parse_bwctl_output({ stdout => $output, tool_type => $self->tool });
+
+    $results->source->address($bwctl_results->{source}) if $bwctl_results->{source};
+    $results->destination->address($bwctl_results->{destination}) if $bwctl_results->{destination};
+
+    my @hops = ();
+    if ($bwctl_results->{results}->{hops}) {
+        foreach my $hop_desc (@{ $bwctl_results->{results}->{hops} }) {
+            my $hop = perfSONAR_PS::RegularTesting::Results::TracerouteTestHop->new();
+            $hop->ttl($hop_desc->{ttl}) if defined $hop_desc->{ttl};
+            $hop->address($hop_desc->{hop}) if defined $hop_desc->{hop};
+            $hop->query_number($hop_desc->{queryNum}) if defined $hop_desc->{queryNum};
+            $hop->delay($hop_desc->{delay}) if defined $hop_desc->{delay};
+            $hop->error($hop_desc->{error}) if defined $hop_desc->{error};
+            push @hops, $hop;
+        }
+    }
+
+    $results->hops(\@hops);
+
+    if ($bwctl_results->{error}) {
+        $results->error($bwctl_results->{error});
+    }
+    elsif ($bwctl_results->{results}->{error}) {
+        $results->error($bwctl_results->{results}->{error});
+    }
+
+    $results->test_time($bwctl_results->{start_time});
+
+    $results->raw_results($output);
+
+    use Data::Dumper;
+    $logger->debug("Results: ".Dumper($results->unparse));
 
     return $results;
 };

@@ -50,6 +50,8 @@ sub parse_bwctl_output {
     my $stderr    = $parameters->{stderr};
     my $tool_type = $parameters->{tool_type};
 
+    my $output_without_bwctl = "";
+
     my %results = ();
     for my $line (split('\n', $stdout)) {
         my $time;
@@ -71,8 +73,11 @@ sub parse_bwctl_output {
         elsif ($line =~ /bwctl: Unable to connect/) {
             $results{error} = $line;
         }
-        else {
+        elsif ($line =~ /bwctl:/) {
             # XXX: handle other errors. e.g. firewall
+        }
+        else {
+            $output_without_bwctl .= "\n".$line;
         }
     }
 
@@ -80,7 +85,7 @@ sub parse_bwctl_output {
         $results{results} = parse_iperf_output({ stdout => $stdout });
     }
     elsif ($tool_type eq "traceroute") {
-        $results{results} = parse_traceroute_output({ stdout => $stdout });
+        $results{results} = parse_traceroute_output({ stdout => $output_without_bwctl });
     }
     elsif ($tool_type eq "ping") {
         $results{results} = parse_ping_output({ stdout => $stdout });

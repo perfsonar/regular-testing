@@ -53,7 +53,6 @@ sub parse_traceroute_output {
                 my $hop_stats = {
                     ttl => $hop_i,
                     queryNum => $query_i,
-                    hop => $query_i,
                 };
 
                 if($query_status == $traceroute->TRACEROUTE_OK()){
@@ -90,7 +89,7 @@ sub parse_traceroute_output {
     };
 
     my $results = {
-        traceroutes   => \@traceroutes
+        hops => \@traceroutes
     };
 
     $results->{error} = $error if $error;
