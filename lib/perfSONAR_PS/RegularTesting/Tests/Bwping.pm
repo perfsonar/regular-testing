@@ -24,7 +24,7 @@ has 'tool' => (is => 'rw', isa => 'Str', default => 'ping');
 has 'packet_count' => (is => 'rw', isa => 'Int', default => 10);
 has 'packet_length' => (is => 'rw', isa => 'Int', default => 1000);
 has 'packet_ttl' => (is => 'rw', isa => 'Int', );
-has 'inter_packet_time' => (is => 'rw', isa => 'Int', );
+has 'inter_packet_time' => (is => 'rw', isa => 'Int', default => 1.0);
 
 my $logger = get_logger(__PACKAGE__);
 

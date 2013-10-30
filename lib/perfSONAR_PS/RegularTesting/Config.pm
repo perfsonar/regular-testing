@@ -35,6 +35,7 @@ my @measurement_archive_modules = (
     'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBwctl',
     'perfSONAR_PS::RegularTesting::MeasurementArchives::PingER',
     'perfSONAR_PS::RegularTesting::MeasurementArchives::TracerouteMA',
+    'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYOwamp',
 );
 
 my @scheduler_modules = (

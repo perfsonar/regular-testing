@@ -1,4 +1,4 @@
-package perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBwctl;
+package perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYOwamp;
 
 use strict;
 use warnings;
@@ -14,13 +14,15 @@ use DBI;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
+use perfSONAR_PS::RegularTesting::Results::PingTest;
+
+use perfSONAR_PS::RegularTesting::Utils qw(datetime2owptstampi datetime2owptime);
 
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';
 
 my $logger = get_logger(__PACKAGE__);
 
-override 'type' => sub { "perfsonarbuoy/bwctl" };
+override 'type' => sub { "perfsonarbuoy/owamp" };
 
 override 'accepts_results' => sub {
     my ($self, @args) = @_;
@@ -29,7 +31,7 @@ override 'accepts_results' => sub {
 
     $logger->debug("accepts_results: $type");
 
-    return ($type eq "throughput");
+    return ($type eq "ping");
 };
 
 override 'store_results' => sub {
@@ -39,8 +41,10 @@ override 'store_results' => sub {
                                       });
     my $results = $parameters->{results};
 
+    my $bucket_width = 0.0001;
+
     eval {
-        $results = perfSONAR_PS::RegularTesting::Results::ThroughputTest->parse($results);
+        $results = perfSONAR_PS::RegularTesting::Results::PingTest->parse($results);
 
         my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
@@ -49,7 +53,7 @@ override 'store_results' => sub {
 
         $logger->debug("Connected to DB");
 
-        my $testspec_id    = $self->add_testspec(dbh => $dbh, results => $results);
+        my $testspec_id    = $self->add_testspec(dbh => $dbh, bucket_width => $bucket_width, results => $results);
         unless ($testspec_id) {
             die("Couldn't get test spec");
         }
@@ -74,6 +78,7 @@ override 'store_results' => sub {
                                              testspec_id => $testspec_id,
                                              source_id   => $source_id,
                                              destination_id => $destination_id,
+                                             bucket_width => $bucket_width,
                                              results => $results
                                             );
 
@@ -94,21 +99,21 @@ sub add_testspec {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
                                          dbh => 1,
+                                         bucket_width => 1,
                                          results => 1,
                                       });
-    my $dbh     = $parameters->{dbh};
-    my $results = $parameters->{results};
-
-    my $is_udp = $results->source->protocol eq "udp"?1:0;
+    my $dbh          = $parameters->{dbh};
+    my $bucket_width = $parameters->{bucket_width};
+    my $results      = $parameters->{results};
 
     my %testspec_properties = (
-        udp => $is_udp,
-        duration => $results->time_duration,
-        udp_bandwidth => $results->bandwidth_limit,
-        len_buffer => $results->buffer_length,
-        window_size => $results->window_size,
-        parallel_streams => $results->streams,
-        tos => $results->tos_bits,
+        num_session_packets => $results->packet_count,
+        num_sample_packets  => $results->packet_count,
+        wait_interval       => $results->inter_packet_time,
+        dscp                => 0,
+        loss_timeout        => 0,
+        packet_padding      => $results->packet_size,
+        bucket_width        => $bucket_width,
     );
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
@@ -126,6 +131,8 @@ sub add_testspec {
 
     unless ($testspec_id) {
         $testspec_properties{tspec_id} = $self->build_id(\%testspec_properties);
+
+        $logger->debug("Testspec to add: ".Dumper(\%testspec_properties));
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "TESTSPEC",
@@ -161,21 +168,14 @@ sub add_endpoint {
         last  => 0,
     );
 
-    if ($endpoint->address) {
-        $node_properties{addr} = $endpoint->address;
-    }
-    elsif ($endpoint->hostname) {
-        $node_properties{addr} = $endpoint->hostname;
-    }
+    $node_properties{addr} = $endpoint->address;
+    $node_properties{host} = $endpoint->hostname;
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
                                               table => "NODES",
                                               date => $date,
                                               properties => \%node_properties,
                                              );
-
-    use Data::Dumper;
-    $logger->debug("Results for ".Dumper(\%node_properties).": ".Dumper($res));
 
     my $node_id;
     if ($status == 0) {
@@ -212,24 +212,78 @@ sub add_data {
                                          source_id => 1,
                                          destination_id => 1,
                                          testspec_id => 1,
+                                         bucket_width => 1,
                                          results => 1,
                                       });
     my $dbh            = $parameters->{dbh};
     my $source_id      = $parameters->{source_id};
     my $testspec_id    = $parameters->{testspec_id};
     my $destination_id = $parameters->{destination_id};
+    my $bucket_width    = $parameters->{bucket_width};
     my $results        = $parameters->{results};
 
+    my ($min, $max, $minttl, $maxttl, $sent, $lost, $dups, $maxerr, $finished);
+
+    my %buckets = ();
+
+    my %packets_seen = ();
+
+    $sent = $results->packet_count;
+
+    my $recv = 0;
+
+    $dups = 0;
+
+    foreach my $ping (@{ $results->pings }) {
+        if ($packets_seen{$ping->sequence_number}) {
+            $dups++;
+            next;
+        }
+
+        $packets_seen{$ping->sequence_number} = 1;
+
+        $recv++;
+
+        if ($ping->ttl) {
+            $minttl = $ping->ttl if (not $minttl or $ping->ttl < $minttl);
+            $maxttl = $ping->ttl if (not $maxttl or $ping->ttl > $maxttl);
+        }
+
+        if ($ping->delay) {
+            my $delay = $ping->delay / 1000.0;
+
+            $min = $delay if (not $min or $delay < $min);
+            $max = $delay if (not $max or $delay > $max);
+
+            my $bucket = int($delay / $bucket_width);
+            $buckets{$bucket} = 0 unless $buckets{$bucket};
+            $buckets{$bucket}++;
+
+            $logger->debug("Delay: ".$delay." Bucket: ".$bucket);
+        }
+    }
+
+    $lost = $sent - $recv;
+
     my %data_properties = (
-                send_id => $source_id,
-                recv_id => $destination_id,
-                tspec_id => $testspec_id,
-                ti => datetime2owptstampi($results->test_time),
-                timestamp => datetime2owptime($results->test_time),
-                throughput => $results->throughput,
-                jitter => $results->jitter,
-                lost => $results->packets_lost,
-                sent => $results->packets_sent,
+        send_id => $source_id,
+        recv_id => $destination_id,
+        tspec_id => $testspec_id,
+        ei => datetime2owptstampi($results->test_time),
+        si => datetime2owptstampi($results->test_time),
+        etimestamp => datetime2owptime($results->test_time),
+        stimestamp => datetime2owptime($results->test_time),
+        start_time => $results->test_time->iso8601(),
+        end_time   => $results->test_time->iso8601(),
+        min => $min,
+        max => $max,
+        minttl => $minttl,
+        maxttl => $maxttl,
+        sent => $sent,
+        lost => $lost,
+        dups => $dups,
+        maxerr => 0,
+        finished => 1,
     );
 
     use Data::Dumper;
@@ -247,6 +301,38 @@ sub add_data {
         #return (-1, $msg);
     }
 
+    foreach my $bucket (keys %buckets) {
+        my %delay_properties = (
+            send_id => $source_id,
+            recv_id => $destination_id,
+            tspec_id => $testspec_id,
+            si => datetime2owptstampi($results->test_time),
+            ei => datetime2owptstampi($results->test_time),
+            stimestamp => datetime2owptime($results->test_time),
+            etimestamp => datetime2owptime($results->test_time),
+            start_time => $results->test_time->iso8601(),
+            end_time   => $results->test_time->iso8601(),
+            bucket_width => $bucket_width,
+            basei => 0,
+            i => $bucket,
+            n => $buckets{$bucket},
+            finished => 1,
+        );
+
+        my ($status, $res) = $self->add_element(dbh => $dbh,
+                                                table => "DELAY",
+                                                date => $results->test_time,
+                                                properties => \%delay_properties,
+                                               );
+
+        unless ($status == 0) {
+            my $msg = "Problem adding data";
+            $logger->error($msg);
+            #return (-1, $msg);
+        }
+    }
+
+
     return (0, "");
 }
 
@@ -256,13 +342,13 @@ sub tables {
             columns => [
                 { name => 'tspec_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'description', type => "TEXT(1024)" },
-                { name => 'duration', type => "INT UNSIGNED NOT NULL DEFAULT 10" },
-                { name => 'len_buffer', type => "INT UNSIGNED" },
-                { name => 'window_size', type => "INT UNSIGNED" },
-                { name => 'tos', type => "TINYINT UNSIGNED" },
-                { name => 'parallel_streams', type => "TINYINT UNSIGNED NOT NULL DEFAULT 1" },
-                { name => 'udp', type => "BOOL NOT NULL DEFAULT 0" },
-                { name => 'udp_bandwidth', type => "BIGINT UNSIGNED" },
+                { name => 'num_session_packets', type => "INT UNSIGNED NOT NULL" },
+                { name => 'num_sample_packets', type => "INT UNSIGNED NOT NULL" },
+                { name => 'wait_interval', type => "DECIMAL(5,4) NOT NULL" },
+                { name => 'dscp', type => "INT UNSIGNED NOT NULL" },
+                { name => 'loss_timeout', type => "FLOAT NOT NULL" },
+                { name => 'packet_padding', type => "INT UNSIGNED NOT NULL" },
+                { name => 'bucket_width', type => "DECIMAL(5,4) NOT NULL" },
             ],
             primary_key => "tspec_id",
         },
@@ -271,6 +357,7 @@ sub tables {
                 { name => 'node_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'node_name', type => "TEXT(128)" },
                 { name => 'longname', type => "TEXT(1024)" },
+                { name => 'host', type => "TEXT(128)" },
                 { name => 'addr', type => "TEXT(128)" },
                 { name => 'first', type => "INT UNSIGNED NOT NULL" },
                 { name => 'last', type => "INT UNSIGNED NOT NULL" },
@@ -282,22 +369,52 @@ sub tables {
                 { name => 'send_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'recv_id', type => "INT UNSIGNED NOT NULL" },
                 { name => 'tspec_id', type => "INT UNSIGNED NOT NULL" },
-                { name => 'ti', type => "INT UNSIGNED NOT NULL" },
-                { name => 'timestamp', type => "BIGINT UNSIGNED NOT NULL" },
-                { name => 'throughput', type => "FLOAT" },
-                { name => 'jitter', type => "FLOAT" },
-                { name => 'lost', type => "BIGINT UNSIGNED" },
-                { name => 'sent', type => "BIGINT UNSIGNED" },
+                { name => 'si', type => "INT UNSIGNED NOT NULL" },
+                { name => 'ei', type => "INT UNSIGNED NOT NULL" },
+                { name => 'stimestamp', type => "BIGINT UNSIGNED NOT NULL" },
+                { name => 'etimestamp', type => "BIGINT UNSIGNED NOT NULL" },
+                { name => 'start_time', type => "TINYTEXT" },
+                { name => 'end_time', type => "TINYTEXT" },
+                { name => 'min', type => "FLOAT" },
+                { name => 'max', type => "FLOAT" },
+                { name => 'minttl', type => "TINYINT" },
+                { name => 'maxttl', type => "TINYINT" },
+                { name => 'sent', type => "INT UNSIGNED" },
+                { name => 'lost', type => "INT UNSIGNED" },
+                { name => 'dups', type => "INT UNSIGNED" },
+                { name => 'maxerr', type => "FLOAT" },
+                { name => 'finished', type => "TINYINT UNSIGNED DEFAULT 0" },
             ],
-            primary_key => "ti,send_id,recv_id",
+            primary_key => "si,ei,send_id,recv_id,tspec_id",
+            indexes => [ "send_id", "recv_id", "tspec_id" ],
+        },
+        "DELAY" => {
+            columns => [
+                { name => 'send_id', type => "INT UNSIGNED NOT NULL" },
+                { name => 'recv_id', type => "INT UNSIGNED NOT NULL" },
+                { name => 'tspec_id', type => "INT UNSIGNED NOT NULL" },
+                { name => 'si', type => "INT UNSIGNED NOT NULL" },
+                { name => 'ei', type => "INT UNSIGNED NOT NULL" },
+                { name => 'stimestamp', type => "BIGINT UNSIGNED NOT NULL" },
+                { name => 'etimestamp', type => "BIGINT UNSIGNED NOT NULL" },
+                { name => 'start_time', type => "TINYTEXT" },
+                { name => 'end_time', type => "TINYTEXT" },
+                { name => 'bucket_width', type => "FLOAT" },
+                { name => 'basei', type => "INT UNSIGNED" },
+                { name => 'i', type => "INT UNSIGNED" },
+                { name => 'n', type => "INT UNSIGNED" },
+                { name => 'finished', type => "TINYINT UNSIGNED DEFAULT 0" },
+            ],
+            primary_key => "i,si,ei,send_id,recv_id,tspec_id",
             indexes => [ "send_id", "recv_id", "tspec_id" ],
         },
         "DATES" => {
             columns => [
                 { name => 'year', type => "INT" },
                 { name => 'month', type => "INT" },
+                { name => 'day', type => "INT" },
             ],
-            primary_key => "year,month",
+            primary_key => "year,month,day",
             static => 1,
         },
     };
@@ -306,7 +423,7 @@ sub tables {
 override 'time_prefix' => sub {
     my ($self, $date) = @_;
 
-    return sprintf( '%4.4d%2.2d', $date->year(), $date->month() );
+    return sprintf( '%4.4d%2.2d%2.2d', $date->year(), $date->month(), $date->day() );
 };
 
 1;
