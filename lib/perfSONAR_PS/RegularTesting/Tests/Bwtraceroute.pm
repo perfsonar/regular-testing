@@ -84,8 +84,10 @@ override 'build_results' => sub {
     # Parse the bwctl output, and add it in
     my $bwctl_results = parse_bwctl_output({ stdout => $output, tool_type => $self->tool });
 
-    $results->source->address($bwctl_results->{source}) if $bwctl_results->{source};
-    $results->destination->address($bwctl_results->{destination}) if $bwctl_results->{destination};
+    $logger->debug("BWCTL Results: ".Dumper($bwctl_results));
+
+    $results->source->address($bwctl_results->{sender_address}) if $bwctl_results->{sender_address};
+    $results->destination->address($bwctl_results->{receiver_address}) if $bwctl_results->{receiver_address};
 
     my @hops = ();
     if ($bwctl_results->{results}->{hops}) {
