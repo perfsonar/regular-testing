@@ -14,8 +14,6 @@ use DBI;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
-
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';
 
 my $logger = get_logger(__PACKAGE__);
@@ -38,8 +36,6 @@ override 'store_results' => sub {
     my $results = $parameters->{results};
 
     eval {
-        $results = perfSONAR_PS::RegularTesting::Results::ThroughputTest->parse($results);
-
         my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
             die("Problem connecting to database: $@");

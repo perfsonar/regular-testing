@@ -39,7 +39,7 @@ override 'store_results' => sub {
                                       });
     my $results = $parameters->{results};
 
-    $logger->debug("Got results: ".JSON->new->pretty->encode($results));
+    $logger->debug("Got results: ".JSON->new->pretty->encode($results->unparse));
 
     return (0, "");
 };

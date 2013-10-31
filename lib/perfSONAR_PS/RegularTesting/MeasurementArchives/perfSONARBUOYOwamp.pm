@@ -14,8 +14,6 @@ use DBI;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::LatencyTest;
-
 use perfSONAR_PS::RegularTesting::Utils qw(datetime2owptstampi datetime2owptime);
 
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';
@@ -42,8 +40,6 @@ override 'store_results' => sub {
     my $bucket_width = 0.0001;
 
     eval {
-        $results = perfSONAR_PS::RegularTesting::Results::LatencyTest->parse($results);
-
         my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
             die("Problem connecting to database: $@");

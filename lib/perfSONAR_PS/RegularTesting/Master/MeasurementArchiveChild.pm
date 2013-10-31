@@ -49,9 +49,9 @@ sub handle_results {
 
     my $parsed = JSON->new->utf8(1)->decode($results);
 
-    # XXX: parse the Results object
+    my $object = perfSONAR_PS::RegularTesting::Results::Base->parse($parsed);
 
-    my ($status, $res) = $self->measurement_archive->store_results(results => $parsed);
+    my ($status, $res) = $self->measurement_archive->store_results(results => $object);
     if ($status != 0) {
         my $msg = "Problem storing results: ".$res;
         $logger->error($msg);

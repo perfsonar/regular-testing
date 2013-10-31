@@ -21,6 +21,30 @@ sub type {
 sub parse {
     my ($class, $description, $strict) = @_;
 
+    if ($class eq __PACKAGE__) {
+        my $type = $description->{type};
+
+        unless ($type) {
+            die("No type information available. Can't parse results");
+        }
+
+        # i.e. pick the class that matches the type
+        my $matching_subclass;
+        foreach my $subclass ($class->meta->subclasses) {
+            eval {
+                if ($subclass->type eq $type) {
+                    $matching_subclass = $subclass;
+                }
+            };
+        }
+
+        unless ($matching_subclass) {
+            die("Unknown result type: $type");
+        }
+
+        return $matching_subclass->parse($description, $strict);
+    }
+
     my $object = $class->new();
 
     my $meta = $object->meta;

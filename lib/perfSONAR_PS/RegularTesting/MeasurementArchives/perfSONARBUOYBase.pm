@@ -15,8 +15,6 @@ use DBI;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::ThroughputTest;
-
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::Base';
 
 has 'host' => (is => 'rw', isa => 'Str');
