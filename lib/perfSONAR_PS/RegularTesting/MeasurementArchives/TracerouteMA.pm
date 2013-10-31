@@ -28,12 +28,10 @@ override 'type' => sub { "traceroute_ma" };
 
 override 'accepts_results' => sub {
     my ($self, @args) = @_;
-    my $parameters = validate( @args, { type => 1, });
-    my $type = $parameters->{type};
+    my $parameters = validate( @args, { results => 1, });
+    my $results = $parameters->{results};
 
-    $logger->debug("accepts_results: $type");
-
-    return ($type eq "traceroute");
+    return ($results->type eq "traceroute");
 };
 
 override 'store_results' => sub {
@@ -99,7 +97,7 @@ sub add_testspec {
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
                                             table => "TESTSPEC",
-                                            date => $results->test_time,
+                                            date => $results->start_time,
                                             properties => \%testspec_properties,
                                             ignore => 1,
                                            );
@@ -126,12 +124,12 @@ sub add_data {
 
     my %measurement_properties = (
                 testspec_key => $testspec_id,
-                timestamp    => $results->test_time->epoch(),
+                timestamp    => $results->start_time->epoch(),
     );
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
                                             table => "MEASUREMENT",
-                                            date => $results->test_time,
+                                            date => $results->start_time,
                                             properties => \%measurement_properties,
                                            );
 
@@ -145,7 +143,7 @@ sub add_data {
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
                                               table => "MEASUREMENT",
-                                              date => $results->test_time,
+                                              date => $results->start_time,
                                               properties => \%measurement_properties,
                                              );
     if ($status == 0) {
@@ -179,7 +177,7 @@ sub add_data {
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "HOPS",
-                                                date => $results->test_time,
+                                                date => $results->start_time,
                                                 properties => \%hop_properties,
                                                );
         unless ($status == 0) {

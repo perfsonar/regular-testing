@@ -14,7 +14,7 @@ use DBI;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::PingTest;
+use perfSONAR_PS::RegularTesting::Results::LatencyTest;
 
 use perfSONAR_PS::RegularTesting::Utils qw(datetime2owptstampi datetime2owptime);
 
@@ -26,12 +26,10 @@ override 'type' => sub { "perfsonarbuoy/owamp" };
 
 override 'accepts_results' => sub {
     my ($self, @args) = @_;
-    my $parameters = validate( @args, { type => 1, });
-    my $type = $parameters->{type};
+    my $parameters = validate( @args, { results => 1, });
+    my $results = $parameters->{results};
 
-    $logger->debug("accepts_results: $type");
-
-    return ($type eq "ping");
+    return ($results->type eq "latency");
 };
 
 override 'store_results' => sub {
@@ -44,7 +42,7 @@ override 'store_results' => sub {
     my $bucket_width = 0.0001;
 
     eval {
-        $results = perfSONAR_PS::RegularTesting::Results::PingTest->parse($results);
+        $results = perfSONAR_PS::RegularTesting::Results::LatencyTest->parse($results);
 
         my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
@@ -60,14 +58,14 @@ override 'store_results' => sub {
 
         $logger->debug("Got test spec: $testspec_id");
 
-        my $source_id      = $self->add_endpoint(dbh => $dbh, date => $results->test_time, endpoint => $results->source);
+        my $source_id      = $self->add_endpoint(dbh => $dbh, date => $results->start_time, endpoint => $results->source);
         unless ($source_id) {
             die("Couldn't get source node");
         }
 
         $logger->debug("Got source id: $source_id");
 
-        my $destination_id = $self->add_endpoint(dbh => $dbh, date => $results->test_time, endpoint => $results->destination);
+        my $destination_id = $self->add_endpoint(dbh => $dbh, date => $results->start_time, endpoint => $results->destination);
         unless ($source_id) {
             die("Couldn't get destination node");
         }
@@ -118,7 +116,7 @@ sub add_testspec {
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
                                               table => "TESTSPEC",
-                                              date => $results->test_time,
+                                              date => $results->start_time,
                                               properties => \%testspec_properties,
                                              );
 
@@ -136,7 +134,7 @@ sub add_testspec {
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "TESTSPEC",
-                                                date => $results->test_time,
+                                                date => $results->start_time,
                                                 properties => \%testspec_properties,
                                                );
 
@@ -269,12 +267,12 @@ sub add_data {
         send_id => $source_id,
         recv_id => $destination_id,
         tspec_id => $testspec_id,
-        ei => datetime2owptstampi($results->test_time),
-        si => datetime2owptstampi($results->test_time),
-        etimestamp => datetime2owptime($results->test_time),
-        stimestamp => datetime2owptime($results->test_time),
-        start_time => $results->test_time->iso8601(),
-        end_time   => $results->test_time->iso8601(),
+        ei => datetime2owptstampi($results->start_time),
+        si => datetime2owptstampi($results->end_time),
+        etimestamp => datetime2owptime($results->start_time),
+        stimestamp => datetime2owptime($results->end_time),
+        start_time => $results->start_time->iso8601(),
+        end_time   => $results->end_time->iso8601(),
         min => $min,
         max => $max,
         minttl => $minttl,
@@ -291,7 +289,7 @@ sub add_data {
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
                                             table => "DATA",
-                                            date => $results->test_time,
+                                            date => $results->start_time,
                                             properties => \%data_properties,
                                            );
 
@@ -306,12 +304,12 @@ sub add_data {
             send_id => $source_id,
             recv_id => $destination_id,
             tspec_id => $testspec_id,
-            si => datetime2owptstampi($results->test_time),
-            ei => datetime2owptstampi($results->test_time),
-            stimestamp => datetime2owptime($results->test_time),
-            etimestamp => datetime2owptime($results->test_time),
-            start_time => $results->test_time->iso8601(),
-            end_time   => $results->test_time->iso8601(),
+            si => datetime2owptstampi($results->start_time),
+            ei => datetime2owptstampi($results->end_time),
+            stimestamp => datetime2owptime($results->start_time),
+            etimestamp => datetime2owptime($results->end_time),
+            start_time => $results->start_time->iso8601(),
+            end_time   => $results->end_time->iso8601(),
             bucket_width => $bucket_width,
             basei => 0,
             i => $bucket,
@@ -321,7 +319,7 @@ sub add_data {
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "DELAY",
-                                                date => $results->test_time,
+                                                date => $results->start_time,
                                                 properties => \%delay_properties,
                                                );
 

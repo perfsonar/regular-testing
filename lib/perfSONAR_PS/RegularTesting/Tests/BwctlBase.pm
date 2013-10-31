@@ -109,11 +109,12 @@ override 'run_test' => sub {
 
     $logger->debug("Executing ".join(" ", @cmd));
 
+    my $bwctl_process;
     my %handled = ();
     eval {
         my ($out, $err);
 
-        my $bwctl_process = start \@cmd, \undef, \$out, \$err;
+        $bwctl_process = start \@cmd, \undef, \$out, \$err;
         unless ($bwctl_process) {
             die("Problem running command: $?");
         }
@@ -154,7 +155,13 @@ override 'run_test' => sub {
     };
     if ($@) {
         $logger->error("Problem running tests: $@");
+        if ($bwctl_process) {
+            $bwctl_process->kill_kill();
+            finish $bwctl_process;
+        }
     }
+
+    return;
 };
 
 sub build_results {

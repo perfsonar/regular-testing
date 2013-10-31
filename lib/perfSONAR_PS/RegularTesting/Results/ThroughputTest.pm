@@ -26,7 +26,8 @@ has 'time_duration'   => (is => 'rw', isa => 'Int');
 has 'streams'         => (is => 'rw', isa => 'Int | Undef');
 has 'tos_bits'        => (is => 'rw', isa => 'Int | Undef');
 
-has 'test_time'       => (is => 'rw', isa => 'DateTime');
+has 'start_time'         => (is => 'rw', isa => 'DateTime');
+has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
 has 'error'           => (is => 'rw', isa => 'Str');
 

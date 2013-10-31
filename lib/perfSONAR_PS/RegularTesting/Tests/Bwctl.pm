@@ -92,8 +92,6 @@ override 'build_results' => sub {
     # Parse the bwctl output, and add it in
     my $bwctl_results = parse_bwctl_output({ stdout => $output, tool_type => $self->tool });
 
-    $results->test_time($bwctl_results->{start_time});
-
     $results->source->address($bwctl_results->{results}->{source}) if $bwctl_results->{results}->{source};
     $results->destination->address($bwctl_results->{results}->{destination}) if $bwctl_results->{results}->{destination};
 
@@ -104,7 +102,8 @@ override 'build_results' => sub {
         $results->error($bwctl_results->{results}->{error});
     }
 
-    $results->test_time($bwctl_results->{start_time});
+    $results->start_time($bwctl_results->{start_time});
+    $results->end_time($bwctl_results->{end_time});
 
     $results->throughput($bwctl_results->{results}->{throughput}) if $bwctl_results->{results}->{throughput};
     $results->jitter($bwctl_results->{results}->{jitter}) if $bwctl_results->{results}->{jitter};

@@ -9,13 +9,14 @@ use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use Time::HiRes;
 use File::Spec;
-#use File::Path qw(make_path);
 use File::Path;
 use POSIX;
 use JSON;
 
+use IPC::DirQueue;
+
 use perfSONAR_PS::RegularTesting::Config;
-use perfSONAR_PS::RegularTesting::Master::TesterChild;
+use perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild;
 use perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild;
 
 use perfSONAR_PS::RegularTesting::EventQueue::Queue;
@@ -23,10 +24,12 @@ use perfSONAR_PS::RegularTesting::EventQueue::Event;
 
 use Moose;
 
-has 'config'       => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
-has 'exiting'      => (is => 'rw', isa => 'Bool');
-has 'children'     => (is => 'rw', isa => 'HashRef', default => sub { {} } );
-has 'event_queue'  => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::EventQueue::Queue');
+has 'config'        => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
+has 'exiting'       => (is => 'rw', isa => 'Bool');
+has 'children'      => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+
+has 'failed_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'active_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -45,22 +48,33 @@ sub init {
 
     $self->config($parsed_config);
 
-    $self->event_queue(perfSONAR_PS::RegularTesting::EventQueue::Queue->new());
-
     $self->exiting(0);
 
     # Initialize the queue directories for these measurement_archives
     foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
-        unless ($measurement_archive->queue_directory) {
-            my $directory = File::Spec->catdir($self->config->test_result_directory, $measurement_archive->nonce);
-            $measurement_archive->queue_directory($directory);
+        my $queue_directory = $measurement_archive->queue_directory;
+
+        unless ($queue_directory) {
+            $queue_directory = File::Spec->catdir($self->config->test_result_directory, $measurement_archive->nonce);
         }
 
-        my @directory_errors = ();
-        mkpath($measurement_archive->queue_directory, { error => \@directory_errors, mode => 0770, verbose => 0 });
-        if (scalar(@directory_errors) > 0) {
-            die("Problem creating ".$measurement_archive->queue_directory.": ".join(",", @directory_errors));
+        my $active_directory = File::Spec->catdir($queue_directory, "active");
+        my $failed_directory = File::Spec->catdir($queue_directory, "failed");
+
+        foreach my $directory ($active_directory, $failed_directory) {
+            $logger->debug("Creating directory: $directory");
+            my @directory_errors = ();
+            mkpath($directory, { error => \@directory_errors, mode => 0770, verbose => 0 });
+            if (scalar(@directory_errors) > 0) {
+                die("Problem creating ".$directory.": ".join(",", @directory_errors));
+            }
         }
+
+        my $active_queue = IPC::DirQueue->new({ dir => $active_directory });
+        my $failed_queue = IPC::DirQueue->new({ dir => $failed_directory });
+
+        $self->active_queues->{$measurement_archive->id} = $active_queue;
+        $self->failed_queues->{$measurement_archive->id} = $failed_queue;
     }
 
     # Initialize the tests before spawning processes
@@ -84,7 +98,11 @@ sub run {
     foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
         $logger->debug("Spawning measurement archive handler: ".$measurement_archive->description);
 
-        my $child = perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild->new(measurement_archive => $measurement_archive, config => $self->config);
+        my $child = perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild->new();
+        $child->measurement_archive($measurement_archive);
+        $child->config($self->config);
+        $child->active_queue($self->active_queues->{$measurement_archive->id});
+        $child->failed_queue($self->failed_queues->{$measurement_archive->id});
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
@@ -93,42 +111,22 @@ sub run {
     foreach my $test (values %{ $self->config->tests }) {
         $logger->debug("Spawning test: ".$test->description);
 
-        my $child = perfSONAR_PS::RegularTesting::Master::TesterChild->new(test => $test, config => $self->config);
+        my $child = perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild->new();
 
-        # XXX: no user for the event queue yet
-        #my $event = perfSONAR_PS::RegularTesting::EventQueue::Event->new(time => $test->calculate_next_run_time(), private => { child => $child, action => "start_test" });
-        #$self->event_queue->insert($event);
+        $child->test($test);
+        $child->config($self->config);
+        $child->ma_queues($self->active_queues);
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
     }
 
-    $self->main_loop();
+    # Sleep waiting to handle various signals
+    while (1) {
+       sleep(-1);
+    }
 
     return;
-}
-
-sub main_loop {
-    my ($self) = @_;
-
-    while (1) {
-       my $event;
-       do {
-           $event = $self->event_queue->pop();
-           sleep(-1) unless $event; # Wait for an event to pop up. XXX: no way for this to happen.
-       } while (not $event);
-
-       my $sleep_time = $event->time - time;
-       while ($sleep_time > 0) {
-           sleep($sleep_time);
-
-           $sleep_time = $event->time - time;
-       }
-
-       if ($event->{private}->{action} eq "start_test") {
-           $event->{private}->{child}->start_test();
-       }
-    }
 }
 
 sub handle_child_exit {

@@ -89,6 +89,16 @@ sub parse {
 sub unparse {
     my ($self) = @_;
 
+    my $description = $self->__unparse;
+
+    $description->{'type'} = $self->type;
+
+    return $description;
+}
+
+sub __unparse {
+    my ($self) = @_;
+
     my $meta = $self->meta;
 
     my %description = ();
@@ -101,7 +111,7 @@ sub unparse {
 
         next unless (defined $value);
 
-        my $unparsed_value = $self->unparse_attribute({ attribute => $variable, type => $type, value => $value });
+        my $unparsed_value = $self->__unparse_attribute({ attribute => $variable, type => $type, value => $value });
 
         $description{$variable} = $unparsed_value;
     }
@@ -109,7 +119,7 @@ sub unparse {
     return \%description;
 }
 
-sub unparse_attribute {
+sub __unparse_attribute {
     my ($self, @args) = @_;
     my $parameters = validate( @args, { attribute => 1, type => 1, value => 1 } );
     my $attribute = $parameters->{attribute};
@@ -121,8 +131,8 @@ sub unparse_attribute {
     if ($type =~ /ArrayRef\[(.*)\]/) {
         my @array = ();
         foreach my $element (@$value) {
-            if (UNIVERSAL::can($element, "unparse")) {
-                push @array, $element->unparse;
+            if (UNIVERSAL::can($element, "__unparse")) {
+                push @array, $element->__unparse;
             }
             else {
                 push @array, $element;
@@ -131,8 +141,8 @@ sub unparse_attribute {
 
         $unparsed_value = \@array;
     }
-    elsif (UNIVERSAL::can($value, "unparse")) {
-        $unparsed_value = $value->unparse;
+    elsif (UNIVERSAL::can($value, "__unparse")) {
+        $unparsed_value = $value->__unparse;
     }
     elsif (UNIVERSAL::can($value, "iso8601")) {
         $unparsed_value = $value->iso8601();

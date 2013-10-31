@@ -26,8 +26,8 @@ override 'nonce' => sub {
 
 override 'accepts_results' => sub {
     my ($self, @args) = @_;
-    my $parameters = validate( @args, { type => 1, });
-    my $type = $parameters->{type};
+    my $parameters = validate( @args, { results => 1, });
+    my $results = $parameters->{results};
 
     return 1;
 };

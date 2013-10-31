@@ -1,4 +1,4 @@
-package perfSONAR_PS::RegularTesting::Results::PingTestDatum;
+package perfSONAR_PS::RegularTesting::Results::LatencyTestDatum;
 
 use strict;
 use warnings;

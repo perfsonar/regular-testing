@@ -7,7 +7,6 @@ our $VERSION = 3.4;
 
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
-use IPC::DirQueue;
 use JSON;
 
 use Moose;
@@ -16,6 +15,9 @@ extends 'perfSONAR_PS::RegularTesting::Master::BaseChild';
 
 has 'measurement_archive' => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::MeasurementArchives::Base');
 
+has 'failed_queue'        => (is => 'rw', isa => 'IPC::DirQueue');
+has 'active_queue'        => (is => 'rw', isa => 'IPC::DirQueue');
+
 my $logger = get_logger(__PACKAGE__);
 
 override 'child_main_loop' => sub {
@@ -23,25 +25,40 @@ override 'child_main_loop' => sub {
 
     $0 = "Regular Testing: Measurement Archive: ".$self->measurement_archive->nonce;
 
-    my $queue = IPC::DirQueue->new({ dir => $self->measurement_archive->queue_directory });
     while (1) {
-        my $job = $queue->wait_for_queued_job();
+        my $job = $self->active_queue->wait_for_queued_job();
         my $results = $job->get_data();
 
         $logger->debug("Got queued job");
 
-        my $parsed = JSON->new->utf8(1)->decode($results);
+        my ($status, $res) = $self->handle_results($results);
+        if ($status != 0) {
+	    # XXX: We need to figure out how to handle the failed results. Only
+	    # periodicially retry?
+            $self->failed_queue->enqueue_string($results);
+        }
 
-        my ($status, $res) = $self->measurement_archive->store_results(results => $parsed);
-        if ($status == 0) {
-            $job->finish();
-        }
-        else {
-            $job->return_to_queue();
-        }
+        $job->finish();
     }
 
     return;
 };
+
+sub handle_results {
+    my ($self, $results) = @_;
+
+    my $parsed = JSON->new->utf8(1)->decode($results);
+
+    # XXX: parse the Results object
+
+    my ($status, $res) = $self->measurement_archive->store_results(results => $parsed);
+    if ($status != 0) {
+        my $msg = "Problem storing results: ".$res;
+        $logger->error($msg);
+        return ($status, $msg);
+    }
+
+    return (0, "");
+}
 
 1;

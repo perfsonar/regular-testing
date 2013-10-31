@@ -10,8 +10,8 @@ use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use File::Temp qw(tempdir);
 
-use perfSONAR_PS::RegularTesting::Results::PingTest;
-use perfSONAR_PS::RegularTesting::Results::PingTestDatum;
+use perfSONAR_PS::RegularTesting::Results::LatencyTest;
+use perfSONAR_PS::RegularTesting::Results::LatencyTestDatum;
 
 use perfSONAR_PS::RegularTesting::Parsers::Bwctl qw(parse_bwctl_output);
 
@@ -69,7 +69,7 @@ override 'build_results' => sub {
     my $schedule       = $parameters->{schedule};
     my $output         = $parameters->{output};
 
-    my $results = perfSONAR_PS::RegularTesting::Results::PingTest->new();
+    my $results = perfSONAR_PS::RegularTesting::Results::LatencyTest->new();
 
     # Fill in the information we know about the test
     $results->source($self->build_endpoint(address => $source, protocol => "icmp" ));
@@ -96,7 +96,7 @@ override 'build_results' => sub {
 
     if ($bwctl_results->{results}->{pings}) {
         foreach my $ping (@{ $bwctl_results->{results}->{pings} }) {
-            my $datum = perfSONAR_PS::RegularTesting::Results::PingTestDatum->new();
+            my $datum = perfSONAR_PS::RegularTesting::Results::LatencyTestDatum->new();
             $datum->sequence_number($ping->{seq}) if defined $ping->{seq};
             $datum->ttl($ping->{ttl}) if defined $ping->{ttl};
             $datum->delay($ping->{delay}) if defined $ping->{delay};
@@ -113,7 +113,8 @@ override 'build_results' => sub {
         $results->error($bwctl_results->{results}->{error});
     }
 
-    $results->test_time($bwctl_results->{start_time});
+    $results->start_time($bwctl_results->{start_time});
+    $results->end_time($bwctl_results->{end_time});
 
     $results->raw_results($output);
 

@@ -24,7 +24,8 @@ has 'packet_size'       => (is => 'rw', isa => 'Int | Undef');
 has 'packet_first_ttl'  => (is => 'rw', isa => 'Int | Undef');
 has 'packet_max_ttl'    => (is => 'rw', isa => 'Int | Undef');
 
-has 'test_time'       => (is => 'rw', isa => 'DateTime');
+has 'start_time'         => (is => 'rw', isa => 'DateTime');
+has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
 has 'error'           => (is => 'rw', isa => 'Str');
 

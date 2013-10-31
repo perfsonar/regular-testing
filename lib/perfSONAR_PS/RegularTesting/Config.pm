@@ -26,7 +26,7 @@ has 'test_result_directory'        => (is => 'rw', isa => 'Str', default => "/va
 my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwctl',
     'perfSONAR_PS::RegularTesting::Tests::Bwping',
-    'perfSONAR_PS::RegularTesting::Tests::Bwowping',
+    'perfSONAR_PS::RegularTesting::Tests::BwpingOwamp',
     'perfSONAR_PS::RegularTesting::Tests::Bwtraceroute',
 );
 

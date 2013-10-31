@@ -12,7 +12,7 @@ use Statistics::Descriptive;
 
 use Moose;
 
-use perfSONAR_PS::RegularTesting::Results::PingTest;
+use perfSONAR_PS::RegularTesting::Results::LatencyTest;
 
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';
 
@@ -22,12 +22,10 @@ override 'type' => sub { "pinger" };
 
 override 'accepts_results' => sub {
     my ($self, @args) = @_;
-    my $parameters = validate( @args, { type => 1, });
-    my $type = $parameters->{type};
+    my $parameters = validate( @args, { results => 1, });
+    my $results = $parameters->{results};
 
-    $logger->debug("accepts_results: $type");
-
-    return ($type eq "ping");
+    return ($results->type eq "latency");
 };
 
 override 'store_results' => sub {
@@ -38,7 +36,7 @@ override 'store_results' => sub {
     my $results = $parameters->{results};
 
     eval {
-        $results = perfSONAR_PS::RegularTesting::Results::PingTest->parse($results);
+        $results = perfSONAR_PS::RegularTesting::Results::LatencyTest->parse($results);
 
         my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
@@ -47,14 +45,14 @@ override 'store_results' => sub {
 
         $logger->debug("Connected to DB");
 
-        my $source_id      = $self->add_host(dbh => $dbh, date => $results->test_time, endpoint => $results->source);
+        my $source_id      = $self->add_host(dbh => $dbh, date => $results->start_time, endpoint => $results->source);
         unless ($source_id) {
             die("Couldn't get source host");
         }
 
         $logger->debug("Got source id: $source_id");
 
-        my $destination_id = $self->add_host(dbh => $dbh, date => $results->test_time, endpoint => $results->destination);
+        my $destination_id = $self->add_host(dbh => $dbh, date => $results->start_time, endpoint => $results->destination);
         unless ($destination_id) {
             die("Couldn't get destination node");
         }
@@ -114,7 +112,7 @@ sub add_metadata {
 
     my ($status, $res) = $self->query_element(dbh => $dbh,
                                               table => "metaData",
-                                              date => $results->test_time,
+                                              date => $results->start_time,
                                               properties => \%metadata_properties,
                                              );
 
@@ -128,7 +126,7 @@ sub add_metadata {
     unless ($metadata_id) {
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "metaData",
-                                                date => $results->test_time,
+                                                date => $results->start_time,
                                                 properties => \%metadata_properties,
                                                );
 
@@ -254,7 +252,7 @@ sub add_data {
 
     my %data_properties = (
         metaID => $metadata_id,
-        timestamp => $results->test_time->epoch(),
+        timestamp => $results->start_time->epoch(),
         minRtt => $rtt_stats->min(),
         meanRtt => $rtt_stats->mean(),
         medianRtt => scalar($rtt_stats->percentile(50)),
@@ -276,7 +274,7 @@ sub add_data {
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
                                             table => "data",
-                                            date => $results->test_time,
+                                            date => $results->start_time,
                                             properties => \%data_properties,
                                            );
 

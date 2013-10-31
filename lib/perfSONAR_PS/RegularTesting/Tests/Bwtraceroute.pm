@@ -111,7 +111,8 @@ override 'build_results' => sub {
         $results->error($bwctl_results->{results}->{error});
     }
 
-    $results->test_time($bwctl_results->{start_time});
+    $results->start_time($bwctl_results->{start_time});
+    $results->end_time($bwctl_results->{end_time});
 
     $results->raw_results($output);
 

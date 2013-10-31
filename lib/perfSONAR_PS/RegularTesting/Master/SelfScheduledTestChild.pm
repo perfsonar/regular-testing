@@ -1,4 +1,4 @@
-package perfSONAR_PS::RegularTesting::Master::TesterChild;
+package perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild;
 
 use strict;
 use warnings;
@@ -8,9 +8,6 @@ our $VERSION = 3.4;
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use Time::HiRes;
-use File::Spec;
-#use File::Path qw(make_path);
-use File::Path;
 use POSIX;
 use JSON;
 
@@ -20,62 +17,14 @@ extends 'perfSONAR_PS::RegularTesting::Master::BaseChild';
 
 has 'test'         => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Test');
 
-has 'starting'     => (is => 'rw', isa => 'Bool');
+has 'ma_queues'    => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
 my $logger = get_logger(__PACKAGE__);
-
-sub start_test {
-    my ($self) = @_;
-
-    return unless $self->pid;
-
-    kill('USR1', $self->pid);
-}
-
-sub stop_test {
-    my ($self) = @_;
-
-    return unless $self->pid;
-
-    kill('USR2', $self->pid);
-}
-
-override 'child_initialize_signals' => sub {
-    my ($self) = @_;
-
-    $SIG{USR1} = sub {
-        $self->handle_start_test();
-    };
-
-    $SIG{USR2} = sub {
-        $self->handle_stop_test();
-    };
-
-    return super();
-};
-
-sub handle_start_test {
-    my ($self) = @_;
-
-    $self->starting(1);
-
-    return;
-}
 
 override 'child_main_loop' => sub {
     my ($self) = @_;
 
     while (1) {
-	# Unless we're handling our own scheduling, wait to get a signal from
-	# the master
-        unless ($self->test->handles_own_scheduling) {
-            while (not $self->starting) {
-                sleep(-1);
-            }
-        }
-
-        $self->starting(0);
-
         $logger->debug("Running test: ".$self->test->description);
 
         my $results;
@@ -91,18 +40,6 @@ override 'child_main_loop' => sub {
         if ($@) {
             my $error = $@;
             $logger->error("Problem with test: ".$self->test->description.": ".$error);
-            #$self->error($@);
-        };
-
-        next unless $results;
-
-        eval {
-            $self->save_results(results => $results);
-        };
-        if ($@) {
-            my $error = $@;
-            $logger->error("Problem saving test results: ".$self->test->description.": ".$error);
-            #$self->error($@);
         };
     }
 
@@ -117,11 +54,14 @@ sub save_results {
     my $json = JSON->new->pretty->encode($results->unparse);
 
     foreach my $measurement_archive (@{ $self->test->measurement_archives }) {
-        if ($measurement_archive->accepts_results({ type => $results->type })) {
+        if ($measurement_archive->accepts_results({ results => $results })) {
             $logger->debug("Enqueueing job to: ".$measurement_archive->queue_directory);
 
-            my $queue = IPC::DirQueue->new({ dir => $measurement_archive->queue_directory });
-            unless ($queue->enqueue_string($json)) {
+            my $queue = $self->ma_queues->{$measurement_archive->id};
+            unless ($queue) {
+                $logger->error("No queue available for measurement archive");
+            }
+            elsif ($queue->enqueue_string($json)) {
                 $logger->error("Problem saving test results to measurement archive");
             }
         }
