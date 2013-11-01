@@ -126,6 +126,7 @@ sub load_tests {
             die("Test schedule is missing type") unless $test->{schedule}->{type};
             die("Unknown schedule type: ".$test->{schedule}->{type}) unless $self->scheduler_modules->{$test->{schedule}->{type}};
             die("Test is missing targets") unless $test->{target};
+            die("Test has multiple local addresses") if ($test->{local_address} and ref($test->{local_address}) eq "ARRAY");
 
             $test->{target} = [ $test->{target} ] unless ref($test->{target}) eq "ARRAY";
 
@@ -174,10 +175,12 @@ sub load_tests {
 
                     if ($direction eq "source") {
                         $test_obj->source($target);
+                        $test_obj->destination($test->{local_address}) if $test->{local_address};
                         $test_obj->destination_local(1);
                     }
                     else {
                         $test_obj->destination($target);
+                        $test_obj->source($test->{local_address}) if $test->{local_address};
                         $test_obj->source_local(1);
                     }
 
