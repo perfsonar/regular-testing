@@ -21,9 +21,11 @@ use base 'Exporter';
 use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger);
 
+use Config::General;
+
 use perfSONAR_PS::RegularTesting::Utils qw(owpdelay);
 
-our @EXPORT_OK = qw( parse_owamp_raw_output );
+our @EXPORT_OK = qw( parse_owamp_raw_output parse_owamp_summary_file parse_owamp_raw_file );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -66,6 +68,42 @@ sub parse_owamp_raw_output {
     return {
         packets  => \@packets
     };
+}
+
+sub parse_owamp_summary_file {
+    my $parameters = validate( @_, { summary_file => 1, });
+    my $summary_file = $parameters->{summary_file};
+
+    my $retval;
+
+    eval {
+        my $conf = Config::General->new($summary_file);
+        my %conf_hash = $conf->getall;
+        $retval = \%conf_hash;
+    };
+    if ($@) {
+        $logger->error("Problem reading summary file: ".$summary_file.": ".$@);
+    }
+
+    return $retval;
+}
+
+sub parse_owamp_raw_file {
+    my $parameters = validate( @_, { owstats => 1, raw_file => 1, });
+    my $owstats  = $parameters->{owstats};
+    my $raw_file = $parameters->{raw_file};
+
+    my $retval;
+
+    eval {
+        my $output = `$owstats -R $raw_file`;
+        $retval = parse_owamp_raw_output({ stdout => $output });
+    };
+    if ($@) {
+        $logger->error("Problem reading summary file: ".$raw_file.": ".$@);
+    }
+
+    return $retval;
 }
 
 1;

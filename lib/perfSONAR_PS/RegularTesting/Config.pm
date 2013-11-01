@@ -28,6 +28,7 @@ my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwping',
     'perfSONAR_PS::RegularTesting::Tests::BwpingOwamp',
     'perfSONAR_PS::RegularTesting::Tests::Bwtraceroute',
+    'perfSONAR_PS::RegularTesting::Tests::Powstream',
 );
 
 my @measurement_archive_modules = (
@@ -40,6 +41,7 @@ my @measurement_archive_modules = (
 
 my @scheduler_modules = (
     'perfSONAR_PS::RegularTesting::Schedulers::RegularInterval',
+    'perfSONAR_PS::RegularTesting::Schedulers::Streaming',
 );
 
 sub init {
@@ -172,9 +174,11 @@ sub load_tests {
 
                     if ($direction eq "source") {
                         $test_obj->source($target);
+                        $test_obj->destination_local(1);
                     }
                     else {
                         $test_obj->destination($target);
+                        $test_obj->source_local(1);
                     }
 
                     my $schedule = $self->parse_schedule({ schedule => $test->{schedule}, config => $config });

@@ -48,14 +48,18 @@ override 'init_test' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
                                          source => 1,
+                                         source_local => 1,
                                          destination => 1,
+                                         destination_local => 1,
                                          schedule => 0,
                                          config => 0,
                                       });
-    my $source         = $parameters->{source};
-    my $destination    = $parameters->{destination};
-    my $schedule       = $parameters->{schedule};
-    my $config         = $parameters->{config};
+    my $source            = $parameters->{source};
+    my $source_local      = $parameters->{source};
+    my $destination       = $parameters->{destination};
+    my $destination_local = $parameters->{destination};
+    my $schedule          = $parameters->{schedule};
+    my $config            = $parameters->{config};
 
     my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX", CLEANUP => 1);
     unless ($results_dir) {
@@ -96,14 +100,18 @@ override 'run_test' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
                                          source => 1,
+                                         source_local => 1,
                                          destination => 1,
+                                         destination_local => 1,
                                          schedule => 0,
                                          handle_results => 1,
                                       });
-    my $source         = $parameters->{source};
-    my $destination    = $parameters->{destination};
-    my $schedule       = $parameters->{schedule};
-    my $handle_results = $parameters->{handle_results};
+    my $source            = $parameters->{source};
+    my $source_local      = $parameters->{source_local};
+    my $destination       = $parameters->{destination};
+    my $destination_local = $parameters->{destination_local};
+    my $schedule          = $parameters->{schedule};
+    my $handle_results    = $parameters->{handle_results};
 
     my @cmd = $self->build_cmd({ source => $source, destination => $destination, schedule => $schedule });
 

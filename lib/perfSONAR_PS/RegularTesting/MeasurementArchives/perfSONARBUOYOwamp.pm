@@ -229,6 +229,11 @@ sub add_data {
     $dups = 0;
 
     foreach my $ping (@{ $results->pings }) {
+        unless ($packets_seen{$ping->delay}) {
+            # Skip lost packets
+            next;
+        }
+
         if ($packets_seen{$ping->sequence_number}) {
             $dups++;
             next;
@@ -263,10 +268,10 @@ sub add_data {
         send_id => $source_id,
         recv_id => $destination_id,
         tspec_id => $testspec_id,
-        ei => datetime2owptstampi($results->start_time),
-        si => datetime2owptstampi($results->end_time),
-        etimestamp => datetime2owptime($results->start_time),
-        stimestamp => datetime2owptime($results->end_time),
+        si => datetime2owptstampi($results->start_time),
+        ei => datetime2owptstampi($results->end_time),
+        stimestamp => datetime2owptime($results->start_time),
+        etimestamp => datetime2owptime($results->end_time),
         start_time => $results->start_time->iso8601(),
         end_time   => $results->end_time->iso8601(),
         min => $min,

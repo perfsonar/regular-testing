@@ -80,37 +80,17 @@ sub owpdelay {
     return ($end - $start)/1_000_000_000.0;
 }
 
-#=head2 owptime2datetime($owptime)
-#
-#=cut
-#sub owptime2datetime {
-#    my ($owptime) = @_;
-#
-#    my $tstamp = uint64($owptime);
-#	my $frac = uint64($owptime);
-#
-#    $tstamp = uint64_to_number(($tstamp >> 32) & 0xFFFFFFFF);
-#	$frac   = uint64_to_number($tstamp & 0xFFFFFFFF) / 1_000_000_000.0;
-#
-#    print "Tstamp: $tstamp Frac: $frac\n";
-#
-#    while ($frac >= 1) {
-#        $frac -= 1;
-#        $tstamp += 1;
-#    }
-#
-#    print "Tstamp: $tstamp Frac: $frac\n";
-#
-#    $tstamp -= JAN_1970;
-#
-#    print "Tstamp: $tstamp Frac: $frac\n";
-#
-#    print "OWPTime: ".$owptime."\n";
-#    my $datetime = DateTime->from_epoch(epoch => $tstamp);
-#    $datetime->set_nanosecond($frac * 1_000_000_000);
-#    print "Time: ".$datetime->epoch() . '.' .  $datetime->nanosecond()."\n";
-#    return $datetime;
-#}
+=head2 owptime2datetime($owptime)
+
+=cut
+sub owptime2datetime {
+    my ($owptime) = @_;
+
+    my $tstamp = uint64($owptime);
+    $tstamp = uint64_to_number(($tstamp >> 32) & 0xFFFFFFFF);
+    $tstamp -= JAN_1970;
+    return DateTime->from_epoch(epoch => $tstamp);
+}
 
 =head2 owptime2datetime($owptime)
 

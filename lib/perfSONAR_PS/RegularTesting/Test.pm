@@ -15,7 +15,9 @@ use Moose;
 has 'id'                   => (is => 'rw', isa => 'Str', default => sub { Data::UUID->new()->create_str() });
 has 'description'          => (is => 'rw', isa => 'Str');
 has 'source'               => (is => 'rw', isa => 'Str');
+has 'source_local'         => (is => 'rw', isa => 'Bool');
 has 'destination'          => (is => 'rw', isa => 'Str');
+has 'destination_local'    => (is => 'rw', isa => 'Bool');
 has 'parameters'           => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Tests::Base');
 has 'schedule'             => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Schedulers::Base');
 has 'measurement_archives' => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::MeasurementArchives::Base]');
@@ -29,7 +31,14 @@ sub init_test {
                                       });
     my $config = $parameters->{config};
 
-    return $self->parameters->init_test({ source => $self->source, destination => $self->destination, schedule => $self->schedule, config => $config });
+    return $self->parameters->init_test({
+                                          source => $self->source,
+                                          source_local => $self->source_local,
+                                          destination => $self->destination,
+                                          destination_local => $self->destination_local,
+                                          schedule => $self->schedule,
+                                          config => $config
+                                       });
 }
 
 sub run_test {
@@ -39,7 +48,14 @@ sub run_test {
                                       });
     my $handle_results = $parameters->{handle_results};
 
-    return $self->parameters->run_test({ source => $self->source, destination => $self->destination, schedule => $self->schedule, handle_results => $handle_results });
+    return $self->parameters->run_test({
+                                         source => $self->source,
+                                         source_local => $self->source_local,
+                                         destination => $self->destination,
+                                         destination_local => $self->destination_local,
+                                         schedule => $self->schedule,
+                                         handle_results => $handle_results,
+                                      });
 }
 
 sub handles_own_scheduling {

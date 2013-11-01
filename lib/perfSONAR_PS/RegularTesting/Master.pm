@@ -19,17 +19,14 @@ use perfSONAR_PS::RegularTesting::Config;
 use perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild;
 use perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild;
 
-use perfSONAR_PS::RegularTesting::EventQueue::Queue;
-use perfSONAR_PS::RegularTesting::EventQueue::Event;
-
 use Moose;
 
 has 'config'        => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
 has 'exiting'       => (is => 'rw', isa => 'Bool');
 has 'children'      => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
-has 'failed_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
-has 'active_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'ma_failed_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'ma_active_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -73,8 +70,8 @@ sub init {
         my $active_queue = IPC::DirQueue->new({ dir => $active_directory });
         my $failed_queue = IPC::DirQueue->new({ dir => $failed_directory });
 
-        $self->active_queues->{$measurement_archive->id} = $active_queue;
-        $self->failed_queues->{$measurement_archive->id} = $failed_queue;
+        $self->ma_active_queues->{$measurement_archive->id} = $active_queue;
+        $self->ma_failed_queues->{$measurement_archive->id} = $failed_queue;
     }
 
     # Initialize the tests before spawning processes
@@ -101,8 +98,8 @@ sub run {
         my $child = perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild->new();
         $child->measurement_archive($measurement_archive);
         $child->config($self->config);
-        $child->active_queue($self->active_queues->{$measurement_archive->id});
-        $child->failed_queue($self->failed_queues->{$measurement_archive->id});
+        $child->active_queue($self->ma_active_queues->{$measurement_archive->id});
+        $child->failed_queue($self->ma_failed_queues->{$measurement_archive->id});
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
@@ -115,7 +112,7 @@ sub run {
 
         $child->test($test);
         $child->config($self->config);
-        $child->ma_queues($self->active_queues);
+        $child->ma_queues($self->ma_active_queues);
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
