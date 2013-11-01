@@ -23,7 +23,7 @@ my $logger = get_logger(__PACKAGE__);
 override 'child_main_loop' => sub {
     my ($self) = @_;
 
-    $0 = "Regular Testing: Measurement Archive: ".$self->measurement_archive->nonce;
+    $0 .= ": Measurement Archive: ".$self->measurement_archive->nonce;
 
     while (1) {
         my $job = $self->active_queue->wait_for_queued_job();

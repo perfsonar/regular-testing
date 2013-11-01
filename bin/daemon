@@ -1,0 +1,82 @@
+#!/usr/bin/perl
+
+use strict;
+use warnings;
+
+use FindBin qw($RealBin);
+use lib "$RealBin/../lib";
+
+use Config::General;
+use Getopt::Long;
+use Proc::Daemon;
+use Proc::PID::File;
+use Log::Log4perl qw(:easy);
+
+use perfSONAR_PS::RegularTesting::Master;
+
+my $CONFIG_FILE = "$RealBin/../etc/regular_testing.conf";
+my $PID_DIR  = "/var/run";
+my $PID_FILE = "perfsonar_regular_testing.pid";
+my $LOGGER_CONF;
+my $DEBUGFLAG;
+my $DAEMONIZE;
+my $HELP;
+
+my ( $status, $res );
+
+$status = GetOptions(
+    'config=s'    => \$CONFIG_FILE,
+    'pid_file=s'  => \$PID_FILE,
+    'pid_dir=s'   => \$PID_DIR,
+    'daemonize=s' => \$DAEMONIZE,
+    'logger=s'    => \$LOGGER_CONF,
+    'verbose'     => \$DEBUGFLAG,
+    'help'        => \$HELP
+);
+
+my $logger;
+unless ( $LOGGER_CONF ) {
+    use Log::Log4perl qw(:easy);
+
+    my %logger_opts = (
+        level  => ($DEBUGFLAG?$DEBUG:$ERROR),
+        layout => '%d (%P) %p> %F{1}:%L %M - %m%n',
+    );
+
+    Log::Log4perl->easy_init( \%logger_opts );
+}
+else {
+    use Log::Log4perl qw(get_logger :levels);
+
+    Log::Log4perl->init( $LOGGER_CONF );
+}
+
+$logger = get_logger( "perfSONAR_PS" );
+
+my %conf = Config::General->new( $CONFIG_FILE )->getall();
+
+my $master = perfSONAR_PS::RegularTesting::Master->new();
+eval {
+    $master->init({ config => \%conf });
+};
+if ($@) {
+    $logger->error("Problem initializing regular testing: ".$@);
+    exit(-1);
+}
+
+if ($DAEMONIZE) {
+   my $pid_file = Proc::PID::File->init(dir => $PID_DIR, name => $PID_FILE);
+   if ($pid_file->alive()) {
+       $logger->error("Previous instance is already running on pid ".$pid_file->read());
+       exit(-1);
+   }
+
+   Proc::Daemon::Init();
+
+   unless ($pid_file->touch()) {
+       $logger->error("Problem opening PID file: ".$pid_file);
+       exit(-1);
+   }
+}
+
+$master->run();

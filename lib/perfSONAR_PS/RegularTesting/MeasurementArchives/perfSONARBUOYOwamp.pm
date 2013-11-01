@@ -229,7 +229,7 @@ sub add_data {
     $dups = 0;
 
     foreach my $ping (@{ $results->pings }) {
-        unless ($packets_seen{$ping->delay}) {
+        unless ($ping->delay) {
             # Skip lost packets
             next;
         }
@@ -257,8 +257,6 @@ sub add_data {
             my $bucket = int($delay / $bucket_width);
             $buckets{$bucket} = 0 unless $buckets{$bucket};
             $buckets{$bucket}++;
-
-            $logger->debug("Delay: ".$delay." Bucket: ".$bucket);
         }
     }
 

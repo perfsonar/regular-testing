@@ -91,6 +91,8 @@ sub init {
 }
 
 sub run {
+    $0 = "perfSONAR_PS Regular Testing";
+
     my ($self) = @_;
     foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
         $logger->debug("Spawning measurement archive handler: ".$measurement_archive->description);
@@ -157,6 +159,10 @@ sub handle_exit {
     if (scalar(keys %{ $self->children }) > 0) {
         foreach my $pid (keys %{ $self->children }) {
             my $child = $self->children->{$pid};
+
+	    # Make sure the child while we were looping through this.
+            next unless $child;
+
             $child->kill_child();
         }
 
@@ -169,6 +175,10 @@ sub handle_exit {
 
         foreach my $pid (keys %{ $self->children }) {
             my $child = $self->children->{$pid};
+
+	    # Make sure the child while we were looping through this.
+            next unless $child;
+
             $logger->debug("Child $pid hasn't exited. Sending SIGKILL");
             $child->kill_child({ force => 1 });
         }

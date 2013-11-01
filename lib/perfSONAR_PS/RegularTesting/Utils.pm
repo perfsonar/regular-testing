@@ -77,7 +77,7 @@ sub parse_target {
 sub owpdelay {
     my ($start, $end) = @_;
 
-    return ($end - $start)/1_000_000_000.0;
+    return ($end - $start)/$scale;
 }
 
 =head2 owptime2datetime($owptime)

@@ -24,6 +24,8 @@ my $logger = get_logger(__PACKAGE__);
 override 'child_main_loop' => sub {
     my ($self) = @_;
 
+    $0 .= ": Test: ".$self->test->description;
+
     while (1) {
         $logger->debug("Running test: ".$self->test->description);
 
