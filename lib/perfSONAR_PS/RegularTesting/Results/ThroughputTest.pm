@@ -29,7 +29,7 @@ has 'tos_bits'        => (is => 'rw', isa => 'Int | Undef');
 has 'start_time'         => (is => 'rw', isa => 'DateTime');
 has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
-has 'error'           => (is => 'rw', isa => 'Str');
+has 'errors'          => (is => 'rw', isa => 'ArrayRef[Str]', default => sub { [] });
 
 has 'jitter'          => (is => 'rw', isa => 'Num | Undef');
 has 'packets_sent'    => (is => 'rw', isa => 'Int | Undef');

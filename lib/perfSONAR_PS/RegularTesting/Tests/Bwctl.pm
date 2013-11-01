@@ -51,6 +51,8 @@ override 'build_cmd' => sub {
     push @cmd, ( '-b', $self->udp_bandwidth ) if $self->udp_bandwidth;
     push @cmd, ( '-l', $self->buffer_length ) if $self->buffer_length;
 
+    push @cmd, ('-y', 'J') if ($self->tool eq "iperf3");
+
     return @cmd;
 };
 
@@ -92,25 +94,68 @@ override 'build_results' => sub {
     # Parse the bwctl output, and add it in
     my $bwctl_results = parse_bwctl_output({ stdout => $output, tool_type => $self->tool });
 
-    $results->source->address($bwctl_results->{results}->{source}) if $bwctl_results->{results}->{source};
-    $results->destination->address($bwctl_results->{results}->{destination}) if $bwctl_results->{results}->{destination};
+    use Data::Dumper;
+    $logger->debug("BWCTL Results: ".Dumper($bwctl_results));
 
-    if ($bwctl_results->{error}) {
-        $results->error($bwctl_results->{error});
-    }
-    elsif ($bwctl_results->{results}->{error}) {
-        $results->error($bwctl_results->{results}->{error});
-    }
+    # Fill in the data that came directly from BWCTL itself
+    $results->source->address($bwctl_results->{sender_address}) if $bwctl_results->{sender_address};
+    $results->destination->address($bwctl_results->{receiver_address}) if $bwctl_results->{receiver_address};
+
+    push @{ $results->errors }, $bwctl_results->{error} if ($bwctl_results->{error});
 
     $results->start_time($bwctl_results->{start_time});
     $results->end_time($bwctl_results->{end_time});
 
-    $results->throughput($bwctl_results->{results}->{throughput}) if $bwctl_results->{results}->{throughput};
-    $results->jitter($bwctl_results->{results}->{jitter}) if $bwctl_results->{results}->{jitter};
-    $results->packets_sent($bwctl_results->{results}->{packets_sent}) if defined $bwctl_results->{results}->{packets_sent};
-    $results->packets_lost($bwctl_results->{results}->{packets_lost}) if defined $bwctl_results->{results}->{packets_lost};
+    # Fill in the data that came from the tool itself
+    if ($self->tool eq "iperf") {
+        $self->fill_iperf_data({ results_obj => $results, results => $bwctl_results->{results} });
+    }
+    elsif ($self->tool eq "iperf3") {
+        $self->fill_iperf3_data({ results_obj => $results, results => $bwctl_results->{results} });
+    }
+    else {
+        push @{ $results->errors }, "Unknown tool type: ".$self->tool;
+    }
 
     return $results;
 };
+
+sub fill_iperf_data {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         results_obj => 1,
+                                         results => 1,
+                                      });
+    my $results_obj    = $parameters->{results_obj};
+    my $results        = $parameters->{results};
+
+    push @{ $results_obj->errors }, $results->{error} if ($results->{error});
+
+    $results_obj->throughput($results->{throughput}) if $results->{throughput};
+    $results_obj->jitter($results->{jitter}) if $results->{jitter};
+    $results_obj->packets_sent($results->{packets_sent}) if defined $results->{packets_sent};
+    $results_obj->packets_lost($results->{packets_lost}) if defined $results->{packets_lost};
+
+    return;
+}
+
+sub fill_iperf3_data {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         results_obj => 1,
+                                         results => 1,
+                                      });
+    my $results_obj    = $parameters->{results_obj};
+    my $results        = $parameters->{results};
+
+    push @{ $results_obj->errors }, $results->{error} if ($results->{error});
+
+    $results_obj->throughput($results->{end}->{sum_received}->{bits_per_second}) if $results->{end}->{sum_received}->{bits_per_second};
+    $results_obj->jitter($results->{end}->{sum_received}->{jitter_ms}) if $results->{end}->{sum_received}->{jitter_ms};
+    $results_obj->packets_sent($results->{end}->{sum_received}->{total_packets}) if defined $results->{end}->{sum_received}->{total_packets};
+    $results_obj->packets_lost($results->{end}->{sum_received}->{lost_packets}) if defined $results->{end}->{sum_received}->{lost_packets};
+
+    return;
+}
 
 1;

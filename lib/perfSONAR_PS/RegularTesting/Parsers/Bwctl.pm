@@ -25,6 +25,7 @@ use HTTP::Response;
 use Log::Log4perl qw(get_logger);
 
 use perfSONAR_PS::RegularTesting::Parsers::Iperf      qw(parse_iperf_output);
+use perfSONAR_PS::RegularTesting::Parsers::Iperf3     qw(parse_iperf3_output);
 use perfSONAR_PS::RegularTesting::Parsers::Owamp      qw(parse_owamp_raw_output);
 use perfSONAR_PS::RegularTesting::Parsers::Ping       qw(parse_ping_output);
 use perfSONAR_PS::RegularTesting::Parsers::Traceroute qw(parse_traceroute_output);
@@ -83,6 +84,9 @@ sub parse_bwctl_output {
 
     if ($tool_type eq "iperf") {
         $results{results} = parse_iperf_output({ stdout => $stdout });
+    }
+    elsif ($tool_type eq "iperf3") {
+        $results{results} = parse_iperf3_output({ stdout => $stdout });
     }
     elsif ($tool_type eq "traceroute") {
         $results{results} = parse_traceroute_output({ stdout => $output_without_bwctl });

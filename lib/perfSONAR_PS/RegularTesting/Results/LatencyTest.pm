@@ -29,7 +29,7 @@ has 'bidirectional'      => (is => 'rw', isa => 'Bool', default => 1);
 has 'start_time'         => (is => 'rw', isa => 'DateTime');
 has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
-has 'error'              => (is => 'rw', isa => 'Str');
+has 'errors'             => (is => 'rw', isa => 'ArrayRef[Str]', default => sub { [] });
 
 has 'pings'              => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::LatencyTestDatum]', default => sub { [] });
 

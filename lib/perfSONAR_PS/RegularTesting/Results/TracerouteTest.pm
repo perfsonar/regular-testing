@@ -27,7 +27,7 @@ has 'packet_max_ttl'    => (is => 'rw', isa => 'Int | Undef');
 has 'start_time'         => (is => 'rw', isa => 'DateTime');
 has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
-has 'error'           => (is => 'rw', isa => 'Str');
+has 'errors'          => (is => 'rw', isa => 'ArrayRef[Str]', default => sub { [] });
 
 has 'hops'             => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::TracerouteTestHop]', default => sub { [] });
 
