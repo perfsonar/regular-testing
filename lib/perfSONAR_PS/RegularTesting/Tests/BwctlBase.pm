@@ -164,9 +164,16 @@ override 'run_test' => sub {
     if ($@) {
         $logger->error("Problem running tests: $@");
         if ($bwctl_process) {
-            $bwctl_process->kill_kill();
-            finish $bwctl_process;
+            eval {
+                $bwctl_process->kill_kill() 
+            };
         }
+    }
+
+    if ($bwctl_process) {
+        eval {
+            finish $bwctl_process;
+        };
     }
 
     return;

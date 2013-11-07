@@ -15,9 +15,11 @@ use Moose;
 
 extends 'perfSONAR_PS::RegularTesting::Master::BaseChild';
 
-has 'test'         => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Test');
+has 'test'              => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Test');
 
-has 'ma_queues'    => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'ma_queues'         => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+
+has 'last_restart_time' => (is => 'rw', isa => 'Int');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -27,7 +29,12 @@ override 'child_main_loop' => sub {
     $0 .= ": Test: ".$self->test->description;
 
     while (1) {
-        $logger->debug("Running test: ".$self->test->description);
+        if ($self->last_restart_time) {
+            $logger->debug("Restarting test: ".$self->test->description);
+        }
+        else {
+            $logger->debug("Running test: ".$self->test->description);
+        }
 
         my $results;
         eval {
@@ -43,6 +50,16 @@ override 'child_main_loop' => sub {
             my $error = $@;
             $logger->error("Problem with test: ".$self->test->description.": ".$error);
         };
+
+        # XXX: don't hard code 5 minutes in here
+        if ($self->last_restart_time) {
+            while ((my $sleep_time = $self->last_restart_time + 300 - time) > 0) {
+                $logger->debug("Waiting $sleep_time seconds to restart test: ".$self->test->description);
+                sleep($sleep_time);
+            }
+        }
+
+        $self->last_restart_time(time);
     }
 
     return;
@@ -57,7 +74,7 @@ sub save_results {
 
     foreach my $measurement_archive (@{ $self->test->measurement_archives }) {
         if ($measurement_archive->accepts_results({ results => $results })) {
-            $logger->debug("Enqueueing job to: ".$measurement_archive->queue_directory);
+            $logger->debug("Enqueueing job to: ".$measurement_archive->nonce);
 
             my $queue = $self->ma_queues->{$measurement_archive->id};
             unless ($queue) {

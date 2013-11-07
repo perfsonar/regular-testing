@@ -12,6 +12,8 @@ use Digest::MD5;
 
 use DBI;
 
+use perfSONAR_PS::RegularTesting::Utils qw(datetime2owptstampi datetime2owptime);
+
 use Moose;
 
 extends 'perfSONAR_PS::RegularTesting::MeasurementArchives::perfSONARBUOYBase';

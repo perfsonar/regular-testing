@@ -21,10 +21,10 @@ extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 
 has 'bwping_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwping');
 has 'tool' => (is => 'rw', isa => 'Str', default => 'owamp');
-has 'packet_count' => (is => 'rw', isa => 'Int', default => 10);
+has 'packet_count' => (is => 'rw', isa => 'Int', default => 100);
 has 'packet_length' => (is => 'rw', isa => 'Int', default => 1000);
 has 'packet_ttl' => (is => 'rw', isa => 'Int', );
-has 'inter_packet_time' => (is => 'rw', isa => 'Num', );
+has 'inter_packet_time' => (is => 'rw', isa => 'Num', default => 0.1);
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -110,6 +110,8 @@ override 'build_results' => sub {
     elsif ($bwctl_results->{results}->{error}) {
         $results->error($bwctl_results->{results}->{error});
     }
+
+    $logger->debug("BWCTL Results: ".Dumper($bwctl_results));
 
     $results->start_time($bwctl_results->{start_time});
     $results->end_time($bwctl_results->{end_time});

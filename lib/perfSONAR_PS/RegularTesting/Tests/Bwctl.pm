@@ -19,8 +19,8 @@ extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 has 'bwctl_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwctl');
 has 'tool' => (is => 'rw', isa => 'Str', default => 'iperf');
 has 'use_udp' => (is => 'rw', isa => 'Bool');
-has 'streams' => (is => 'rw', isa => 'Int');
-has 'duration' => (is => 'rw', isa => 'Int');
+has 'streams' => (is => 'rw', isa => 'Int', default => 1);
+has 'duration' => (is => 'rw', isa => 'Int', default => 10);
 has 'udp_bandwidth' => (is => 'rw', isa => 'Int');
 has 'buffer_length' => (is => 'rw', isa => 'Int');
 
