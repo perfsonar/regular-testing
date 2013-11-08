@@ -107,10 +107,11 @@ override 'build_results' => sub {
     $results->pings(\@pings);
 
     if ($bwctl_results->{error}) {
-        $results->error($bwctl_results->{error});
+        push @{ $results->errors }, $bwctl_results->{error};
     }
-    elsif ($bwctl_results->{results}->{error}) {
-        $results->error($bwctl_results->{results}->{error});
+
+    if ($bwctl_results->{results}->{error}) {
+        push @{ $results->errors }, $bwctl_results->{results}->{error};
     }
 
     $results->start_time($bwctl_results->{start_time});

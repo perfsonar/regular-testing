@@ -130,11 +130,15 @@ override 'run_test' => sub {
         while (1) {
             pump $bwctl_process;
 
+            $logger->debug("IPC::Run::pump returned: out: ".$out." err: ".$err);
+
             my @files = split('\n', $out);
             foreach my $file (@files) {
                 next if $handled{$file};
 
-                open(FILE, $file) or return;
+                $logger->debug("bwctl output: $file");
+
+                open(FILE, $file) or next;
                 my $contents = do { local $/ = <FILE> };
                 close(FILE);
 

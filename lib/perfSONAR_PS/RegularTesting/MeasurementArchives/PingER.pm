@@ -132,7 +132,17 @@ sub add_metadata {
             return;
         }
 
-        $metadata_id = $metadata_properties{metaID};
+        ($status, $res) = $self->query_element(dbh => $dbh,
+                                               table => "metaData",
+                                               date => $results->start_time,
+                                               properties => \%metadata_properties,
+                                               );
+
+        if ($status == 0) {
+            foreach my $result (@$res) {
+                $metadata_id = $result->{metaID};
+            }
+        }
     }
 
     return $metadata_id;
@@ -185,6 +195,17 @@ sub add_host {
         }
 
         $host_id = $host_properties{host};
+        ($status, $res) = $self->query_element(dbh => $dbh,
+                                               table => "host",
+                                               date => $date,
+                                               properties => \%host_properties,
+                                              );
+
+        if ($status == 0) {
+            foreach my $result (@$res) {
+                $host_id = $result->{host};
+            }
+        }
     }
 
     return $host_id;
