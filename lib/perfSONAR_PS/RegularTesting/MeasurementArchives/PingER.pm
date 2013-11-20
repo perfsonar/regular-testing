@@ -34,7 +34,10 @@ override 'store_results' => sub {
     my $results = $parameters->{results};
 
     eval {
-        my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
+        my $dsn = "dbi:mysql:database=".$self->database;
+        $dsn .= ";host=".$self->host if $self->host;
+
+        my $dbh = DBI->connect($dsn, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
             die("Problem connecting to database: $@");
         }

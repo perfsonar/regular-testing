@@ -132,6 +132,8 @@ override 'run_test' => sub {
 
             $logger->debug("IPC::Run::pump returned: out: ".$out." err: ".$err);
 
+            $err = "";
+
             my @files = split('\n', $out);
             foreach my $file (@files) {
                 next if $handled{$file};

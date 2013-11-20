@@ -228,16 +228,15 @@ sub build_results {
     my $raw_file       = $parameters->{raw_file};
     my $summary_file   = $parameters->{summary_file};
 
-    my $raw             = parse_owamp_raw_file({ owstats => $self->owstats_cmd, raw_file => $raw_file });
     my $summary         = parse_owamp_summary_file({ summary_file => $summary_file });
 
-    unless ($raw and $summary) {
+    unless ($summary) {
         $logger->error("Problem parsing test results");
         return;
     }
 
     use Data::Dumper;
-    $logger->debug("Raw output: ".Dumper($raw));
+    #$logger->debug("Raw output: ".Dumper($raw));
     $logger->debug("Summary output: ".Dumper($summary));
 
     my $results = perfSONAR_PS::RegularTesting::Results::LatencyTest->new();
@@ -261,20 +260,25 @@ sub build_results {
     $results->start_time(owptime2datetime($summary->{START_TIME}));
     $results->end_time(owptime2datetime($summary->{END_TIME}));
 
-    my @pings = ();
 
-    if ($raw->{packets}) {
-        foreach my $ping (@{ $raw->{packets} }) {
-            my $datum = perfSONAR_PS::RegularTesting::Results::LatencyTestDatum->new();
-            $datum->sequence_number($ping->{sequence_number}) if defined $ping->{sequence_number};
-            $datum->ttl($ping->{ttl}) if defined $ping->{ttl};
-            # Convert delays to 'ms'
-            $datum->delay($ping->{delay} * 1000) if defined $ping->{delay};
-            push @pings, $datum;
-        }
+    # Add the summarized results since adding the raw results is absurdly
+    # expensive for powstream tests...
+    $results->packets_sent($summary->{SENT});
+    $results->packets_received($summary->{SENT} - $summary->{LOST});
+    $results->duplicate_packets($summary->{DUPS});
+
+    $results->histogram_bucket_size($summary->{BUCKET_WIDTH});
+
+    my %delays = ();
+    foreach my $bucket (keys %{ $summary->{BUCKETS} }) {
+        $delays{$bucket * $summary->{BUCKET_WIDTH}} = $summary->{BUCKETS}->{$bucket};
     }
+    $results->delay_histogram(\%delays);
 
-    $results->pings(\@pings);
+    my %ttls = %{ $summary->{TTLBUCKETS} };
+    $results->ttl_histogram(\%ttls);
+
+    $results->raw_results("");
 
     # XXX: look into error conditions
 

@@ -55,6 +55,8 @@ override 'build_cmd' => sub {
     # like them...
     push @cmd, ( '-y', 'a' );
 
+    push @cmd, '-E';
+
     return @cmd;
 };
 

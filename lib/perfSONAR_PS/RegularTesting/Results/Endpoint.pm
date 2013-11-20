@@ -19,4 +19,7 @@ has 'address'  => (is => 'rw', isa => 'Str');
 has 'port'     => (is => 'rw', isa => 'Int | Undef');
 has 'protocol' => (is => 'rw', isa => 'Str');
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
+
 1;

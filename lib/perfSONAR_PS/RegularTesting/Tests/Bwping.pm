@@ -53,6 +53,8 @@ override 'build_cmd' => sub {
     push @cmd, ( '-t', $self->packet_ttl ) if $self->packet_ttl;
     push @cmd, ( '-l', $self->packet_length ) if $self->packet_length;
 
+    push @cmd, '-E';
+
     return @cmd;
 };
 

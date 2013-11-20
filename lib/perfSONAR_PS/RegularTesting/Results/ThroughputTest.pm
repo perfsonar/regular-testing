@@ -40,4 +40,7 @@ has 'raw_results'     => (is => 'rw', isa => 'Str');
 
 override 'type' => sub { return "throughput" };
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
+
 1;

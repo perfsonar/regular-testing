@@ -20,4 +20,7 @@ has 'query_number'      => (is => 'rw', isa => 'Int');
 has 'delay'             => (is => 'rw', isa => 'Num');
 has 'error'             => (is => 'rw', isa => 'Str');
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
+
 1;

@@ -31,13 +31,21 @@ has 'end_time'           => (is => 'rw', isa => 'DateTime');
 
 has 'errors'             => (is => 'rw', isa => 'ArrayRef[Str]', default => sub { [] });
 
-has 'pings'              => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::LatencyTestDatum]', default => sub { [] });
+has 'delay_histogram'    => (is => 'rw', isa => 'HashRef[Int]', default => sub { {} });
+has 'histogram_bucket_size' => (is => 'rw', isa => 'Num');
+has 'ttl_histogram'      => (is => 'rw', isa => 'HashRef[Int]', default => sub { {} });
 
 has 'packets_sent'       => (is => 'rw', isa => 'Int');
 has 'packets_received'   => (is => 'rw', isa => 'Int');
+has 'duplicate_packets'  => (is => 'rw', isa => 'Int');
+
+has 'pings'              => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Results::LatencyTestDatum]', default => sub { [] });
 
 has 'raw_results'        => (is => 'rw', isa => 'Str');
 
 override 'type'          => sub { return "latency" };
+
+no Moose;
+__PACKAGE__->meta->make_immutable;
 
 1;

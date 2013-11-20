@@ -40,7 +40,10 @@ override 'store_results' => sub {
     my $bucket_width = 0.0001;
 
     eval {
-        my $dbh = DBI->connect("dbi:mysql:".$self->database, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
+        my $dsn = "dbi:mysql:database=".$self->database;
+        $dsn .= ";host=".$self->host if $self->host;
+
+        my $dbh = DBI->connect($dsn, $self->username, $self->password, { RaiseError => 0, PrintError => 0 });
         unless ($dbh) {
             die("Problem connecting to database: $@");
         }
@@ -220,47 +223,67 @@ sub add_data {
 
     my %buckets = ();
 
-    my %packets_seen = ();
+    # Calculate the stats from the raw pings
+    if (scalar(@{ $results->pings }) > 0) {
+        $dups = 0;
 
-    $sent = $results->packet_count;
+        my $recv = 0;
+        my %packets_seen = ();
+        foreach my $ping (@{ $results->pings }) {
+            unless ($ping->delay) {
+                # Skip lost packets
+                next;
+            }
 
-    my $recv = 0;
+            if ($packets_seen{$ping->sequence_number}) {
+                $dups++;
+                next;
+            }
 
-    $dups = 0;
+            $packets_seen{$ping->sequence_number} = 1;
 
-    foreach my $ping (@{ $results->pings }) {
-        unless ($ping->delay) {
-            # Skip lost packets
-            next;
+            $recv++;
+
+            if ($ping->ttl) {
+                $minttl = $ping->ttl if (not $minttl or $ping->ttl < $minttl);
+                $maxttl = $ping->ttl if (not $maxttl or $ping->ttl > $maxttl);
+            }
+
+            if ($ping->delay) {
+                my $delay = $ping->delay / 1000.0;
+
+                $min = $delay if (not $min or $delay < $min);
+                $max = $delay if (not $max or $delay > $max);
+
+                my $bucket = int($delay / $bucket_width);
+                $buckets{$bucket} = 0 unless $buckets{$bucket};
+                $buckets{$bucket}++;
+            }
         }
 
-        if ($packets_seen{$ping->sequence_number}) {
-            $dups++;
-            next;
-        }
+        $sent = $results->packets_sent;
+        $lost = $sent - $recv;
+    }
+    else {
+        my ($min, $max, $minttl, $maxttl, $sent, $lost, $dups, $maxerr, $finished);
 
-        $packets_seen{$ping->sequence_number} = 1;
+        $sent = $results->packets_sent;
+        $lost = $results->packets_received/$results->packets_sent;
+        $dups = $results->duplicate_packets;
 
-        $recv++;
+        my @sorted_buckets = sort { $a <=> $b} keys %{ $results->delay_histogram };
+        $min = $sorted_buckets[0];
+        $max = $sorted_buckets[$#sorted_buckets];
 
-        if ($ping->ttl) {
-            $minttl = $ping->ttl if (not $minttl or $ping->ttl < $minttl);
-            $maxttl = $ping->ttl if (not $maxttl or $ping->ttl > $maxttl);
-        }
+        my @sorted_ttls    = sort { $a <=> $b} keys %{ $results->ttl_histogram };
+        $minttl = $sorted_ttls[0];
+        $maxttl = $sorted_ttls[$#sorted_ttls];
 
-        if ($ping->delay) {
-            my $delay = $ping->delay / 1000.0;
-
-            $min = $delay if (not $min or $delay < $min);
-            $max = $delay if (not $max or $delay > $max);
-
-            my $bucket = int($delay / $bucket_width);
-            $buckets{$bucket} = 0 unless $buckets{$bucket};
-            $buckets{$bucket}++;
+        # Convert buckets to milliseconds from seconds.
+        foreach my $bucket (keys %{ $results->delay_histogram }) {
+            $buckets{int($bucket / $results->histogram_bucket_size)} = $results->delay_histogram->{$bucket};
         }
     }
-
-    $lost = $sent - $recv;
 
     my %data_properties = (
         send_id => $source_id,
@@ -283,8 +306,8 @@ sub add_data {
         finished => 1,
     );
 
-    use Data::Dumper;
-    $logger->debug("Data Properties: ".Dumper(\%data_properties));
+    #use Data::Dumper;
+    #$logger->debug("Data Properties: ".Dumper(\%data_properties));
 
     my ($status, $res) = $self->add_element(dbh => $dbh,
                                             table => "DATA",
@@ -305,10 +328,10 @@ sub add_data {
             tspec_id => $testspec_id,
             si => datetime2owptstampi($results->start_time),
             ei => datetime2owptstampi($results->end_time),
-            stimestamp => datetime2owptime($results->start_time),
-            etimestamp => datetime2owptime($results->end_time),
-            start_time => $results->start_time->iso8601(),
-            end_time   => $results->end_time->iso8601(),
+            #stimestamp => datetime2owptime($results->start_time),
+            #etimestamp => datetime2owptime($results->end_time),
+            #start_time => $results->start_time->iso8601(),
+            #end_time   => $results->end_time->iso8601(),
             bucket_width => $bucket_width,
             basei => 0,
             i => $bucket,

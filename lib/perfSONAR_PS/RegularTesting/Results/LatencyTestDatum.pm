@@ -18,4 +18,7 @@ has 'sequence_number'   => (is => 'rw', isa => 'Int | Undef');
 has 'ttl'               => (is => 'rw', isa => 'Int | Undef');
 has 'delay'             => (is => 'rw', isa => 'Num | Undef');
 
+no Moose;
+__PACKAGE__->meta->make_immutable;
+
 1;

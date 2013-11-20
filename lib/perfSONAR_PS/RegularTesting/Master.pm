@@ -60,10 +60,10 @@ sub init {
 
         foreach my $directory ($active_directory, $failed_directory) {
             $logger->debug("Creating directory: $directory");
-            my @directory_errors = ();
-            mkpath($directory, { error => \@directory_errors, mode => 0770, verbose => 0 });
-            if (scalar(@directory_errors) > 0) {
-                die("Problem creating ".$directory.": ".join(",", @directory_errors));
+            my $directory_errors;
+            mkpath($directory, { error => \$directory_errors, mode => 0770, verbose => 0 });
+            if (scalar(@$directory_errors) > 0) {
+                die("Problem creating ".$directory.": ".join(",", @$directory_errors));
             }
         }
 

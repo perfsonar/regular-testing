@@ -33,8 +33,8 @@ override 'child_main_loop' => sub {
 
         my ($status, $res) = $self->handle_results($results);
         if ($status != 0) {
-	    # XXX: We need to figure out how to handle the failed results. Only
-	    # periodicially retry?
+            # XXX: We need to figure out how to handle the failed results. Only
+            # periodicially retry?
             $self->failed_queue->enqueue_string($results);
         }
 
