@@ -140,7 +140,7 @@ sub add_data {
 
     my $measurement_id;
 
-    my ($status, $res) = $self->query_element(dbh => $dbh,
+    ($status, $res) = $self->query_element(dbh => $dbh,
                                               table => "MEASUREMENT",
                                               date => $results->start_time,
                                               properties => \%measurement_properties,

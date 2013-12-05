@@ -77,6 +77,8 @@ override 'build_results' => sub {
     $results->source($self->build_endpoint(address => $source, protocol => "icmp" ));
     $results->destination($self->build_endpoint(address => $destination, protocol => "icmp" ));
 
+    $results->bidirectional(1);
+
     use Data::Dumper;
     $logger->debug("Results: ".Dumper($results->unparse));
 

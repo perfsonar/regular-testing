@@ -23,7 +23,7 @@ use Params::Validate qw(:all);
 use Log::Log4perl qw(get_logger);
 
 use Data::Validate::Domain qw(is_hostname);
-use Data::Validate::IP qw(is_ipv4);
+use Data::Validate::IP qw(is_ipv4 is_ipv6);
 use Net::IP;
 
 use Math::Int64 qw(uint64 uint64_to_number);
@@ -61,12 +61,14 @@ sub parse_target {
         $address = $target;
     }
 
-    if ( is_ipv4( $address ) or 
-         &Net::IP::ip_is_ipv6( $address ) or 
-         is_hostname( $address ) ) {
+#    if ( is_ipv4( $address ) or 
+#         is_ipv6( $address ) or 
+#         is_hostname( $address ) ) {
 
         return { address => $address, port => $port };
-    }
+#    }
+
+    print "IPv6: ".is_ipv6( $address )."\n";
 
     return;
 }

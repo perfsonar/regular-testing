@@ -12,8 +12,9 @@ use perfSONAR_PS::RegularTesting::Config;
 
 use Moose;
 
-has 'pid'    => (is => 'rw', isa => 'Int');
-has 'config' => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
+has 'pid'     => (is => 'rw', isa => 'Int');
+has 'config'  => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config');
+has 'exiting' => (is => 'rw', isa => 'Bool');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -58,6 +59,7 @@ sub child_initialize_signals {
     $SIG{CHLD} = 'IGNORE';
 
     $SIG{TERM} = $SIG{INT} = sub {
+        $self->exiting(1);
         $self->handle_exit();
     };
 

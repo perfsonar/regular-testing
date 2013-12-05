@@ -23,7 +23,7 @@ override 'accepts_results' => sub {
     my $parameters = validate( @args, { results => 1, });
     my $results = $parameters->{results};
 
-    return ($results->type eq "latency");
+    return ($results->type eq "latency" and $results->bidirectional);
 };
 
 override 'store_results' => sub {
@@ -257,7 +257,7 @@ sub add_data {
     # Calculate out-of-order packets and duplicates
     my ($oop, $dups) = (0, 0);
     my %seen = ();
-    my $prev_datum;
+    $prev_datum = undef;
     foreach my $datum (@{ $results->pings }) {
         if ($seen{$datum->delay}) {
             $dups++;

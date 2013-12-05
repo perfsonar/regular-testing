@@ -92,7 +92,7 @@ override 'build_results' => sub {
 
     my @pings = ();
 
-    if ($bwctl_results->{results}->{packets}) {
+    if ($bwctl_results->{results}->{pings}) {
         foreach my $ping (@{ $bwctl_results->{results}->{pings} }) {
             my $datum = perfSONAR_PS::RegularTesting::Results::LatencyTestDatum->new();
             $datum->sequence_number($ping->{sequence_number}) if defined $ping->{sequence_number};

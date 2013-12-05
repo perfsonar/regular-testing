@@ -9,6 +9,7 @@ use IPC::Run qw( start pump );
 use Log::Log4perl qw(get_logger);
 use Params::Validate qw(:all);
 use File::Temp qw(tempdir);
+use File::Path qw(rmtree);
 
 use Data::Validate::IP qw(is_ipv4);
 use Data::Validate::Domain qw(is_hostname);
@@ -25,6 +26,7 @@ has 'force_ipv4' => (is => 'rw', isa => 'Bool');
 has 'force_ipv6' => (is => 'rw', isa => 'Bool');
 
 has '_results_directory' => (is => 'rw', isa => 'Str');
+has '_bwctl_process' => (is => 'rw', isa => 'Object | Undef');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -61,14 +63,41 @@ override 'init_test' => sub {
     my $schedule          = $parameters->{schedule};
     my $config            = $parameters->{config};
 
-    my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX", CLEANUP => 1);
-    unless ($results_dir) {
-        die("Couldn't create directory to store results");
+    eval {
+        #my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX", CLEANUP => 1);
+        my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX");
+        $self->_results_directory($results_dir);
+    };
+    if ($@) {
+        die("Couldn't create directory to store results: ".$@);
     }
 
-    $self->_results_directory($results_dir);
-
     return;
+};
+
+override 'stop_test' => sub {
+    my ($self) = @_;
+
+    if ($self->_bwctl_process) {
+        eval {
+            $self->_bwctl_process->kill_kill() 
+        };
+    }
+
+    if ($self->_results_directory) {
+       if (-d $self->_results_directory) {
+           eval {
+               rmtree($self->_results_directory);
+           };
+           if ($@) {
+               $logger->error("Couldn't remove: ".$self->_results_directory);
+           }
+           else {
+               $logger->debug("Removed: ".$self->_results_directory);
+           }
+       }
+    }
+
 };
 
 sub build_cmd {
@@ -117,18 +146,18 @@ override 'run_test' => sub {
 
     $logger->debug("Executing ".join(" ", @cmd));
 
-    my $bwctl_process;
     my %handled = ();
     eval {
         my ($out, $err);
 
-        $bwctl_process = start \@cmd, \undef, \$out, \$err;
-        unless ($bwctl_process) {
+        my $proc = start \@cmd, \undef, \$out, \$err;
+        $self->_bwctl_process($proc);
+        unless ($self->_bwctl_process) {
             die("Problem running command: $?");
         }
 
         while (1) {
-            pump $bwctl_process;
+            pump $self->_bwctl_process;
 
             $logger->debug("IPC::Run::pump returned: out: ".$out." err: ".$err);
 
@@ -136,6 +165,8 @@ override 'run_test' => sub {
 
             my @files = split('\n', $out);
             foreach my $file (@files) {
+                ($file) = ($file =~ /(.*)/); # untaint the silly filename
+
                 next if $handled{$file};
 
                 $logger->debug("bwctl output: $file");
@@ -169,18 +200,20 @@ override 'run_test' => sub {
     };
     if ($@) {
         $logger->error("Problem running tests: $@");
-        if ($bwctl_process) {
+        if ($self->_bwctl_process) {
             eval {
-                $bwctl_process->kill_kill() 
+                $self->_bwctl_process->kill_kill() 
             };
         }
     }
 
-    if ($bwctl_process) {
+    if ($self->_bwctl_process) {
         eval {
-            finish $bwctl_process;
+            finish $self->_bwctl_process;
         };
     }
+
+    $self->_bwctl_process(undef);
 
     return;
 };

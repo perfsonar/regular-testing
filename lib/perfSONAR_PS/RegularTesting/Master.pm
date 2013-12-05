@@ -13,7 +13,7 @@ use File::Path;
 use POSIX;
 use JSON;
 
-use IPC::DirQueue;
+use perfSONAR_PS::RegularTesting::DirQueue;
 
 use perfSONAR_PS::RegularTesting::Config;
 use perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild;
@@ -62,13 +62,13 @@ sub init {
             $logger->debug("Creating directory: $directory");
             my $directory_errors;
             mkpath($directory, { error => \$directory_errors, mode => 0770, verbose => 0 });
-            if (scalar(@$directory_errors) > 0) {
-                die("Problem creating ".$directory.": ".join(",", @$directory_errors));
+            if ($directory_errors and scalar(@$directory_errors) > 0) {
+                die("Problem creating ".$directory);
             }
         }
 
-        my $active_queue = IPC::DirQueue->new({ dir => $active_directory });
-        my $failed_queue = IPC::DirQueue->new({ dir => $failed_directory });
+        my $active_queue = perfSONAR_PS::RegularTesting::DirQueue->new({ fan_out => 1, dir => $active_directory });
+        my $failed_queue = perfSONAR_PS::RegularTesting::DirQueue->new({ fan_out => 1, dir => $failed_directory });
 
         $self->ma_active_queues->{$measurement_archive->id} = $active_queue;
         $self->ma_failed_queues->{$measurement_archive->id} = $failed_queue;
@@ -132,6 +132,7 @@ sub handle_child_exit {
     my ($self) = @_;
 
     while( ( my $pid = waitpid( -1, &WNOHANG ) ) > 0 ) {
+        $logger->debug("Received SIGCHLD for PID: ".$pid);
         my $child = $self->children->{$pid};
         if (not $child) {
             $logger->debug("Received SIGCHLD for unknown PID: ".$pid);
@@ -139,6 +140,13 @@ sub handle_child_exit {
         }
 
         delete($self->children->{$pid});
+
+        if ($child->can("test")) {
+            $logger->debug("Spawning child: ".$child->test->description);
+        }
+        elsif ($child->can("measurement_archive")) {
+            $logger->debug("Spawning child: ".$child->measurement_archive->nonce);
+        }
 
         unless ($self->exiting) {
             $logger->debug("Child exited. Restarting...");
@@ -166,8 +174,8 @@ sub handle_exit {
             $child->kill_child();
         }
 
-        # Wait a second for processes to exit
-        my $waketime = time + 1;
+        # Wait two seconds for processes to exit
+        my $waketime = time + 2;
         while ((my $sleep_time = $waketime - time) > 0 and 
                scalar keys %{ $self->children } > 0) {
             sleep($sleep_time);

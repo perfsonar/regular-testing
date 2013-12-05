@@ -58,6 +58,12 @@ sub run_test {
                                       });
 }
 
+sub stop_test {
+    my ($self) = @_;
+
+    return $self->parameters->stop_test();
+}
+
 sub handles_own_scheduling {
     my ($self) = @_;
 

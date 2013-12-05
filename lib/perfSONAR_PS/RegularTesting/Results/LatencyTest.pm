@@ -24,7 +24,7 @@ has 'packet_size'        => (is => 'rw', isa => 'Int | Undef');
 has 'packet_ttl'         => (is => 'rw', isa => 'Int | Undef');
 has 'inter_packet_time'  => (is => 'rw', isa => 'Num | Undef');
 
-has 'bidirectional'      => (is => 'rw', isa => 'Bool', default => 1);
+has 'bidirectional'      => (is => 'rw', isa => 'Bool', default => 0);
 
 has 'start_time'         => (is => 'rw', isa => 'DateTime');
 has 'end_time'           => (is => 'rw', isa => 'DateTime');

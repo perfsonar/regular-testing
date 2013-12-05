@@ -15,8 +15,8 @@ extends 'perfSONAR_PS::RegularTesting::Master::BaseChild';
 
 has 'measurement_archive' => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::MeasurementArchives::Base');
 
-has 'failed_queue'        => (is => 'rw', isa => 'IPC::DirQueue');
-has 'active_queue'        => (is => 'rw', isa => 'IPC::DirQueue');
+has 'failed_queue'        => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::DirQueue');
+has 'active_queue'        => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::DirQueue');
 
 my $logger = get_logger(__PACKAGE__);
 

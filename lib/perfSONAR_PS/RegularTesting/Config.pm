@@ -135,20 +135,20 @@ sub load_tests {
                 $logger->debug("Test supports bidirectional");
                 if ($test->{parameters}->{send_only}) {
                     $logger->debug("Test is send only");
-                    @directions = ( "destination" );
+                    @directions = ( "target_is_destination" );
                 }
                 elsif ($test->{parameters}->{receive_only}) {
                     $logger->debug("Test is receive only");
-                    @directions = ( "source" );
+                    @directions = ( "target_is_source" );
                 }
                 else {
                     $logger->debug("Test is bidirectional");
-                    @directions = ( "source", "destination" );
+                    @directions = ( "target_is_source", "target_is_destination" );
                 }
             }
             else {
                 $logger->debug("Test doesn't support bidirectional, target receives");
-                @directions = ( "destination" );
+                @directions = ( "target_is_destination" );
             }
 
             my $measurement_archives = $self->load_measurement_archives({ config => $test });
@@ -173,7 +173,7 @@ sub load_tests {
 
                     # XXX: verify that the target is valid
 
-                    if ($direction eq "source") {
+                    if ($direction eq "target_is_source") {
                         $test_obj->source($target);
                         $test_obj->destination($test->{local_address}) if $test->{local_address};
                         $test_obj->destination_local(1);

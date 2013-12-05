@@ -66,7 +66,7 @@ sub parse_owamp_raw_output {
     }
 
     return {
-        packets  => \@packets
+        pings => \@packets
     };
 }
 

@@ -37,6 +37,10 @@ sub run_test {
     die("'run_test' needs to be overridden");
 }
 
+sub stop_test {
+    die("'run_test' needs to be overridden");
+}
+
 sub valid_target {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {

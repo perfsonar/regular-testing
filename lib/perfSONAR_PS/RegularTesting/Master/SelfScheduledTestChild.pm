@@ -51,16 +51,22 @@ override 'child_main_loop' => sub {
             $logger->error("Problem with test: ".$self->test->description.": ".$error);
         };
 
+        last if $self->exiting;
+
         # XXX: don't hard code 5 minutes in here
         if ($self->last_restart_time) {
             while ((my $sleep_time = $self->last_restart_time + 300 - time) > 0) {
                 $logger->debug("Waiting $sleep_time seconds to restart test: ".$self->test->description);
                 sleep($sleep_time);
+
+                last if $self->exiting;
             }
         }
 
         $self->last_restart_time(time);
     }
+
+    $self->test->stop_test();
 
     return;
 };
@@ -71,6 +77,8 @@ sub save_results {
     my $results = $parameters->{results};
 
     my $json = JSON->new->pretty->encode($results->unparse);
+
+    my $enqueued;
 
     foreach my $measurement_archive (@{ $self->test->measurement_archives }) {
         if ($measurement_archive->accepts_results({ results => $results })) {
@@ -83,10 +91,25 @@ sub save_results {
             elsif ($queue->enqueue_string($json)) {
                 $logger->error("Problem saving test results to measurement archive");
             }
+            else {
+                $logger->error("Enqueued test results for measurement archive: ".$measurement_archive->nonce);
+                $enqueued = 1;
+            }
         }
+    }
+
+    unless ($enqueued) {
+        $logger->error("No measurement archive to save test results to");
     }
 
     return;
 }
+
+before 'handle_exit' => sub {
+    my ($self) = @_;
+
+    $logger->debug("Stopping test: ".$self->test->description);
+    $self->test->stop_test();
+};
 
 1;

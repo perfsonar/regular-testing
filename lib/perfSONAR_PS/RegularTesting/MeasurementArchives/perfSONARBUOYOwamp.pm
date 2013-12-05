@@ -27,7 +27,7 @@ override 'accepts_results' => sub {
     my $parameters = validate( @args, { results => 1, });
     my $results = $parameters->{results};
 
-    return ($results->type eq "latency");
+    return ($results->type eq "latency" and not $results->bidirectional);
 };
 
 override 'store_results' => sub {
@@ -129,7 +129,7 @@ sub add_testspec {
     unless ($testspec_id) {
         $testspec_properties{tspec_id} = $self->build_id(\%testspec_properties);
 
-        $logger->debug("Testspec to add: ".Dumper(\%testspec_properties));
+        #$logger->debug("Testspec to add: ".Dumper(\%testspec_properties));
 
         my ($status, $res) = $self->add_element(dbh => $dbh,
                                                 table => "TESTSPEC",
@@ -228,15 +228,18 @@ sub add_data {
         $dups = 0;
 
         my $recv = 0;
+        $sent = 0;
         my %packets_seen = ();
         foreach my $ping (@{ $results->pings }) {
-            unless ($ping->delay) {
-                # Skip lost packets
+            if ($packets_seen{$ping->sequence_number}) {
+                $dups++;
                 next;
             }
 
-            if ($packets_seen{$ping->sequence_number}) {
-                $dups++;
+            $sent++;
+
+            unless ($ping->delay) {
+                # Skip lost packets
                 next;
             }
 
@@ -261,14 +264,18 @@ sub add_data {
             }
         }
 
-        $sent = $results->packets_sent;
         $lost = $sent - $recv;
     }
     else {
         my ($min, $max, $minttl, $maxttl, $sent, $lost, $dups, $maxerr, $finished);
 
         $sent = $results->packets_sent;
-        $lost = $results->packets_received/$results->packets_sent;
+        if ($results->packets_sent) {
+            $lost = $results->packets_received/$results->packets_sent;
+        }
+        else {
+            $lost = 0;
+        }
         $dups = $results->duplicate_packets;
 
         my @sorted_buckets = sort { $a <=> $b} keys %{ $results->delay_histogram };
