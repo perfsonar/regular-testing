@@ -1,0 +1,94 @@
+#!/bin/bash
+#
+# Init file for perfSONAR Regular Testing
+#
+# chkconfig: 2345 65 20
+# description: perfSONAR Regular Testing
+#
+
+PREFIX=/opt/perfsonar_ps/regular_testing
+BINDIR=${PREFIX}/bin
+CONFDIR=${PREFIX}/etc
+RUNDIR=/var/run
+
+CONFFILE=${CONFDIR}/regular_testing.conf
+LOGGERFILE=${CONFDIR}/regular_testing-logger.conf
+PIDFILE=regular_testing.pid
+
+USER=perfsonar
+GROUP=perfsonar
+
+FULL_PIDFILE=${RUNDIR}/${PIDFILE}
+
+PERFSONAR="${BINDIR}/daemon --config=${CONFFILE} --pidfile=${PIDFILE} --piddir=${RUNDIR} --logger=${LOGGERFILE} --user=${USER} --group=${GROUP} --daemonize"
+
+ERROR=0
+ARGV="$@"
+if [ "x$ARGV" = "x" ] ; then 
+    ARGS="help"
+fi
+
+for ARG in $@ $ARGS
+do
+    # check for pidfile
+    if [ -f $FULL_PIDFILE ] ; then
+        PID=`cat $FULL_PIDFILE`
+        if [ "x$PID" != "x" ] && kill -0 $PID 2>/dev/null ; then
+            STATUS="perfSONAR Regular Testing (pid $PID) running"
+            RUNNING=1
+        else
+            STATUS="perfSONAR Regular Testing (pid $PID?) not running"
+            RUNNING=0
+        fi
+    else
+        STATUS="perfSONAR Regular Testing (no pid file) not running"
+        RUNNING=0
+    fi 
+
+    case $ARG in
+    start)
+	echo $PERFSONAR
+
+	if $PERFSONAR ; then
+	    echo "$0 $ARG: perfSONAR Regular Testing started"
+            touch /var/lock/subsys/regular_testing
+	else
+	    echo "$0 $ARG: perfSONAR Regular Testing could not be started"
+	    ERROR=3
+	fi
+	;;
+    stop)
+	if [ $RUNNING -eq 0 ]; then
+	    echo "$0 $ARG: $STATUS"
+	    continue
+	fi
+	if kill $PID ; then
+	    echo "$0 $ARG: perfSONAR Regular Testing stopped"
+            rm /var/lock/subsys/regular_testing
+	else
+	    echo "$0 $ARG: perfSONAR Regular Testing could not be stopped"
+	    ERROR=4
+	fi
+	;;
+    restart)
+    	$0 stop; echo "waiting..."; sleep 10; $0 start;
+	;;
+    *)
+	echo "usage: $0 (start|stop|restart|help)"
+	cat <<EOF
+
+start      - start perfSONAR Regular Testing
+stop       - stop perfSONAR Regular Testing
+restart    - restart perfSONAR Regular Testing if running by sending a SIGHUP or start if 
+             not running
+help       - this screen
+
+EOF
+	ERROR=2
+    ;;
+
+    esac
+
+done
+
+exit $ERROR
