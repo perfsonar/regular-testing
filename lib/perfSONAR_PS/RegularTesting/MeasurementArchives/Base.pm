@@ -12,15 +12,16 @@ use Data::UUID;
 use Moose;
 use Class::MOP::Class;
 
+extends 'perfSONAR_PS::RegularTesting::Utils::SerializableObject';
+
 my $logger = get_logger(__PACKAGE__);
 
-has 'id'              => (is => 'rw', isa => 'Str', default => sub { Data::UUID->new()->create_str() });
 has 'description'     => (is => 'rw', isa => 'Str');
 
 has 'queue_directory' => (is => 'rw', isa => 'Str');
 
 sub type {
-    die("'type' needs to be overridden");
+    return "";
 }
 
 sub nonce {

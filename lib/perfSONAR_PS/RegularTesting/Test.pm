@@ -12,6 +12,8 @@ use Data::UUID;
 
 use Moose;
 
+extends 'perfSONAR_PS::RegularTesting::Utils::SerializableObject';
+
 has 'description'          => (is => 'rw', isa => 'Str');
 has 'targets'              => (is => 'rw', isa => 'ArrayRef[Str]');
 has 'local_address'        => (is => 'rw', isa => 'Str');
@@ -20,6 +22,10 @@ has 'schedule'             => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting:
 has 'measurement_archives' => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::MeasurementArchives::Base]');
 
 my $logger = get_logger(__PACKAGE__);
+
+override 'variable_map' => sub {
+    return { "targets" => "target", "measurement_archives" => "measurement_archive" };
+};
 
 sub validate_test {
     my ($self, @args) = @_;

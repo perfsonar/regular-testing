@@ -25,8 +25,7 @@ has 'config'        => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Config
 has 'exiting'       => (is => 'rw', isa => 'Bool');
 has 'children'      => (is => 'rw', isa => 'HashRef', default => sub { {} } );
 
-has 'ma_failed_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
-has 'ma_active_queues' => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'ma_queues'     => (is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -37,18 +36,23 @@ sub init {
                                       });
     my $config = $parameters->{config};
 
-    my $parsed_config = perfSONAR_PS::RegularTesting::Config->new();
-    my ($status, $res) = $parsed_config->init({ config => $config });
-    if ($status != 0) {
-        die("Problem with config file: ".$res);
+    eval {
+        my $parsed_config = perfSONAR_PS::RegularTesting::Config->parse($config, 1);
+        $self->config($parsed_config);
+    };
+    if ($@) {
+        die("Problem parsing configuration file: $@");
     }
-
-    $self->config($parsed_config);
 
     $self->exiting(0);
 
     # Initialize the queue directories for these measurement_archives
-    foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
+    my @measurement_archives = @{ $self->config->measurement_archives };
+    foreach my $test (@{ $self->config->tests }) {
+        push @measurement_archives, @{ $test->measurement_archives} if $test->measurement_archives;
+    }
+
+    foreach my $measurement_archive (@measurement_archives) {
         my $queue_directory = $measurement_archive->queue_directory;
 
         unless ($queue_directory) {
@@ -70,8 +74,7 @@ sub init {
         my $active_queue = perfSONAR_PS::RegularTesting::DirQueue->new({ fan_out => 1, dir => $active_directory });
         my $failed_queue = perfSONAR_PS::RegularTesting::DirQueue->new({ fan_out => 1, dir => $failed_directory });
 
-        $self->ma_active_queues->{$measurement_archive->id} = $active_queue;
-        $self->ma_failed_queues->{$measurement_archive->id} = $failed_queue;
+        $self->add_ma_queues({ measurement_archive => $measurement_archive, active_queue => $active_queue, failed_queue => $failed_queue });
     }
 
     # Initialize the tests before spawning processes
@@ -90,18 +93,53 @@ sub init {
     return;
 }
 
+sub get_ma_queues {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { measurement_archive => 1 });
+    my $measurement_archive = $parameters->{measurement_archive};
+    my $queue               = $parameters->{queue};
+
+    foreach my $ma_queue (@{ $self->ma_queues }) {
+        return $ma_queue if ($ma_queue->{measurement_archive} eq $measurement_archive);
+    }
+
+    return;
+}
+
+sub add_ma_queues {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { measurement_archive => 1, active_queue => 1, failed_queue => 1 });
+    my $measurement_archive = $parameters->{measurement_archive};
+    my $active_queue        = $parameters->{active_queue};
+    my $failed_queue        = $parameters->{failed_queue};
+
+    return if $self->get_ma_queues({ measurement_archive => $measurement_archive });
+
+    push @{ $self->ma_queues }, { measurement_archive => $measurement_archive, active_queue => $active_queue, failed_queue => $failed_queue };
+
+    return;
+}
+
 sub run {
+    my ($self) = @_;
+
     $0 = "perfSONAR_PS Regular Testing";
 
-    my ($self) = @_;
-    foreach my $measurement_archive (values %{ $self->config->measurement_archives }) {
-        $logger->debug("Spawning measurement archive handler: ".$measurement_archive->description);
+    my @measurement_archives = @{ $self->config->measurement_archives };
+    foreach my $test (@{ $self->config->tests }) {
+        push @measurement_archives, @{ $test->measurement_archives} if $test->measurement_archives;
+    }
+
+    foreach my $measurement_archive (@measurement_archives) {
+        $logger->debug("Spawning measurement archive handler: ".$measurement_archive->nonce);
+
+        my $ma_queues = $self->get_ma_queues({ measurement_archive => $measurement_archive });
 
         my $child = perfSONAR_PS::RegularTesting::Master::MeasurementArchiveChild->new();
         $child->measurement_archive($measurement_archive);
         $child->config($self->config);
-        $child->active_queue($self->ma_active_queues->{$measurement_archive->id});
-        $child->failed_queue($self->ma_failed_queues->{$measurement_archive->id});
+        $child->active_queue($ma_queues->{active_queue});
+        $child->failed_queue($ma_queues->{failed_queue});
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
@@ -116,12 +154,14 @@ sub run {
             @mas = @{ $test->measurement_archives };
         }
         else {
-            @mas = values %{ $self->config->measurement_archives };
+            @mas = @{ $self->config->measurement_archives };
         }
 
         my @ma_queues = ();
         foreach my $ma (@mas) {
-            push @ma_queues, { ma => $ma, queue => $self->ma_active_queues->{$ma->id} };
+            my $ma_queues = $self->get_ma_queues({ measurement_archive => $ma });
+
+            push @ma_queues, { ma => $ma, queue => $ma_queues->{active_queue} };
         }
 
         my $child = perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild->new();
@@ -155,15 +195,15 @@ sub handle_child_exit {
 
         delete($self->children->{$pid});
 
-        if ($child->can("test")) {
-            $logger->debug("Spawning child: ".$child->test->description);
-        }
-        elsif ($child->can("measurement_archive")) {
-            $logger->debug("Spawning child: ".$child->measurement_archive->nonce);
-        }
-
         unless ($self->exiting) {
             $logger->debug("Child exited. Restarting...");
+
+            if ($child->can("test")) {
+                $logger->debug("Spawning child: ".$child->test->description);
+            }
+            elsif ($child->can("measurement_archive")) {
+                $logger->debug("Spawning child: ".$child->measurement_archive->nonce);
+            }
 
             my $pid = $child->run();
             $self->children->{$pid} = $child;

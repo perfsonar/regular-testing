@@ -11,6 +11,8 @@ use Params::Validate qw(:all);
 use Moose;
 use Class::MOP::Class;
 
+extends 'perfSONAR_PS::RegularTesting::Utils::SerializableObject';
+
 my $logger = get_logger(__PACKAGE__);
 
 sub check_configuration {
@@ -21,21 +23,6 @@ sub check_configuration {
 
 sub type {
     die("Type needs to be overridden");
-}
-
-sub get_attributes {
-    my $class = shift;
-
-    my @ancestors = reverse $class->meta->linearized_isa;
-
-    my %attrs = ();
-    foreach my $class (@ancestors) {
-        foreach my $attribute ( sort $class->meta->get_attribute_list ) {
-            $attrs{$attribute->name} = 1 unless $attribute =~ /^_/;
-        }
-    }
-
-    return keys %attrs;
 }
 
 1;

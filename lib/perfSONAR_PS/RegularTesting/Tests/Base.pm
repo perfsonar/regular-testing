@@ -13,6 +13,8 @@ use perfSONAR_PS::RegularTesting::Utils qw(parse_target);
 use Moose;
 use Class::MOP::Class;
 
+extends 'perfSONAR_PS::RegularTesting::Utils::SerializableObject';
+
 my $logger = get_logger(__PACKAGE__);
 
 sub type {
