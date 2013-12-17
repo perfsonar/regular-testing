@@ -16,12 +16,13 @@ my $logger = get_logger(__PACKAGE__);
 
 use Moose;
 
-has 'tests'                        => (is => 'rw', isa => 'HashRef[perfSONAR_PS::RegularTesting::Test]', default => sub { {} });
+has 'tests'                        => (is => 'rw', isa => 'ArrayRef[perfSONAR_PS::RegularTesting::Test]', default => sub { [] });
 has 'measurement_archives'         => (is => 'rw', isa => 'HashRef[perfSONAR_PS::RegularTesting::MeasurementArchive::Base]', default => sub { {} });
-has 'scheduler_modules'            => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
-has 'test_modules'                 => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
-has 'measurement_archive_modules'  => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
 has 'test_result_directory'        => (is => 'rw', isa => 'Str', default => "/var/lib/perfsonar/regular_tests");
+
+has '_scheduler_modules'            => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has '_test_modules'                 => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
+has '_measurement_archive_modules'  => (is => 'rw', isa => 'HashRef[Str]', default => sub { {} });
 
 my @test_modules = (
     'perfSONAR_PS::RegularTesting::Tests::Bwctl',
@@ -52,19 +53,19 @@ sub init {
     foreach my $module (@test_modules) {
         load $module;
 
-        $self->test_modules->{$module->type()} = $module;
+        $self->_test_modules->{$module->type()} = $module;
     }
 
     foreach my $module (@scheduler_modules) {
         load $module;
 
-        $self->scheduler_modules->{$module->type()} = $module;
+        $self->_scheduler_modules->{$module->type()} = $module;
     }
 
     foreach my $module (@measurement_archive_modules) {
         load $module;
 
-        $self->measurement_archive_modules->{$module->type()} = $module;
+        $self->_measurement_archive_modules->{$module->type()} = $module;
     }
 
     $self->load_measurement_archives({ config => $config });
@@ -112,99 +113,42 @@ sub load_tests {
     }
 
     if ($config->{test_result_directory}) {
+        $logger->debug("Setting test result directory to: ".$config->{test_result_directory});
         $self->test_result_directory($config->{test_result_directory});
     }
 
-    my %tests = ();
+    my @tests = ();
 
     foreach my $test (@{ $config->{test} }) {
         eval {
             die("Test is missing parameters") unless $test->{parameters};
             die("Test parameters is missing type") unless $test->{parameters}->{type};
-            die("Unknown test type: ".$test->{parameters}->{type}) unless $self->test_modules->{$test->{parameters}->{type}};
+            die("Unknown test type: ".$test->{parameters}->{type}) unless $self->_test_modules->{$test->{parameters}->{type}};
             die("Test is missing schedule") unless $test->{schedule};
             die("Test schedule is missing type") unless $test->{schedule}->{type};
-            die("Unknown schedule type: ".$test->{schedule}->{type}) unless $self->scheduler_modules->{$test->{schedule}->{type}};
+            die("Unknown schedule type: ".$test->{schedule}->{type}) unless $self->_scheduler_modules->{$test->{schedule}->{type}};
             die("Test is missing targets") unless $test->{target};
             die("Test has multiple local addresses") if ($test->{local_address} and ref($test->{local_address}) eq "ARRAY");
 
             $test->{target} = [ $test->{target} ] unless ref($test->{target}) eq "ARRAY";
 
-            my @directions;
-            if ($self->test_modules->{$test->{parameters}->{type}}->allows_bidirectional()) {
-                $logger->debug("Test supports bidirectional");
-                if ($test->{parameters}->{send_only}) {
-                    $logger->debug("Test is send only");
-                    @directions = ( "target_is_destination" );
-                }
-                elsif ($test->{parameters}->{receive_only}) {
-                    $logger->debug("Test is receive only");
-                    @directions = ( "target_is_source" );
-                }
-                else {
-                    $logger->debug("Test is bidirectional");
-                    @directions = ( "target_is_source", "target_is_destination" );
-                }
-            }
-            else {
-                $logger->debug("Test doesn't support bidirectional, target receives");
-                @directions = ( "target_is_destination" );
-            }
+            my $test_obj = perfSONAR_PS::RegularTesting::Test->new();
+            $test_obj->targets($test->{target});
+            $test_obj->local_address($test->{local_address}) if $test->{local_address};
+            $test_obj->description($test->{description}) if $test->{description};
 
             my $measurement_archives = $self->load_measurement_archives({ config => $test });
-            if (scalar(@$measurement_archives) == 0) {
-                my @global_mas = values %{ $self->measurement_archives() };
-                $measurement_archives = \@global_mas;
+            if (scalar(@$measurement_archives) > 0) {
+                $test_obj->measurement_archives($measurement_archives);
             }
 
-            foreach my $target (@{ $test->{target} }) {
-                foreach my $direction (@directions) {
-                    my $test_obj = perfSONAR_PS::RegularTesting::Test->new();
-
-                    my $description;
-                    if ($test->{description}) {
-                        $description = $test->{description}." for ".$target;
-                    }
-                    else {
-                        $description = $test->{parameters}->{type} . " test for ".$target;
-                    }
-
-                    $test_obj->description($description);
-
-                    # XXX: verify that the target is valid
-
-                    if ($direction eq "target_is_source") {
-                        $test_obj->source($target);
-                        $test_obj->destination($test->{local_address}) if $test->{local_address};
-                        $test_obj->destination_local(1);
-                    }
-                    else {
-                        $test_obj->destination($target);
-                        $test_obj->source($test->{local_address}) if $test->{local_address};
-                        $test_obj->source_local(1);
-                    }
-
-                    my $schedule = $self->parse_schedule({ schedule => $test->{schedule}, config => $config });
-                    $test_obj->schedule($schedule);
+            my $schedule = $self->parse_schedule({ schedule => $test->{schedule}, config => $config });
+            $test_obj->schedule($schedule);
     
-                    my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
-                    $test_obj->parameters($parameters);
-    
-                    unless ($parameters->valid_target({ target => $target })) {
-                        die("Target ".$target." is not valid for tests of type ".$parameters->type);
-                    }
+            my $parameters = $self->parse_test_parameters({ test_parameters => $test->{parameters}, config => $config });
+            $test_obj->parameters($parameters);
 
-                    unless ($parameters->valid_schedule({ schedule => $schedule })) {
-                        die("Schedule ".$schedule->type." is not valid for tests of type ".$parameters->type);
-                    }
-
-                    $test_obj->measurement_archives($measurement_archives);
-
-                    $logger->debug("Adding test: ".$test_obj->description);
-
-                    $tests{$test_obj->id} = $test_obj;
-                }
-            }
+            push @tests, $test_obj;
         };
         if ($@) {
             my $msg = "Problem reading test: $@";
@@ -213,7 +157,7 @@ sub load_tests {
         };
     }
 
-    $self->tests(\%tests);
+    $self->tests(\@tests);
 
     return (0, "");
 }
@@ -223,7 +167,7 @@ sub parse_measurement_archive {
     my $parameters = validate( @args, { measurement_archive => 1 });
     my $measurement_archive = $parameters->{measurement_archive};
 
-    my $module = $self->measurement_archive_modules->{$measurement_archive->{type}};
+    my $module = $self->_measurement_archive_modules->{$measurement_archive->{type}};
 
     my $attributes = get_class_attributes($module);
 
@@ -247,7 +191,7 @@ sub parse_test_parameters {
     my $test_parameters = $parameters->{test_parameters};
     my $config = $parameters->{config};
 
-    my $module = $self->test_modules->{$test_parameters->{type}};
+    my $module = $self->_test_modules->{$test_parameters->{type}};
 
     my $attributes = get_class_attributes($module);
 
@@ -277,7 +221,7 @@ sub parse_schedule {
     my $schedule = $parameters->{schedule};
     my $config = $parameters->{config};
 
-    my $module = $self->scheduler_modules->{$schedule->{type}};
+    my $module = $self->_scheduler_modules->{$schedule->{type}};
 
     my $attributes = get_class_attributes($module);
 
@@ -321,6 +265,10 @@ sub parse_attribute {
     }
 
     return $parsed_value;
+}
+
+sub unparse {
+
 }
 
 sub get_class_attributes {

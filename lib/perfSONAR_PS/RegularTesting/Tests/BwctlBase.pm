@@ -11,6 +11,8 @@ use Params::Validate qw(:all);
 use File::Temp qw(tempdir);
 use File::Path qw(rmtree);
 
+use POSIX ":sys_wait_h";
+
 use Data::Validate::IP qw(is_ipv4);
 use Data::Validate::Domain qw(is_hostname);
 use Net::IP;
@@ -22,11 +24,12 @@ use Moose;
 extends 'perfSONAR_PS::RegularTesting::Tests::Base';
 
 # Common to all bwctl-ish commands
-has 'force_ipv4' => (is => 'rw', isa => 'Bool');
-has 'force_ipv6' => (is => 'rw', isa => 'Bool');
+has 'force_ipv4'  => (is => 'rw', isa => 'Bool');
+has 'force_ipv6'  => (is => 'rw', isa => 'Bool');
+has 'send_only'   => (is => 'rw', isa => 'Bool');
+has 'receive_only'=> (is => 'rw', isa => 'Bool');
 
-has '_results_directory' => (is => 'rw', isa => 'Str');
-has '_bwctl_process' => (is => 'rw', isa => 'Object | Undef');
+has '_individual_tests' => (is => 'rw', isa => 'ArrayRef[HashRef]');
 
 my $logger = get_logger(__PACKAGE__);
 
@@ -46,31 +49,196 @@ override 'valid_schedule' => sub {
     return;
 };
 
+sub get_individual_tests {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, {
+                                         test => 1,
+                                      });
+    my $test              = $parameters->{test};
+
+    my @tests = ();
+ 
+    # Build the set of set of tests that make up this bwctl test
+    foreach my $target (@{ $test->targets }) {
+        unless ($test->parameters->send_only) {
+            push @tests, { source => $test->local_address, destination => $target };
+        }
+        unless ($test->parameters->receive_only) {
+            push @tests, { source => $target, destination => $test->local_address };
+        }
+    }
+
+    return @tests;
+}
+
 override 'init_test' => sub {
     my ($self, @args) = @_;
     my $parameters = validate( @args, {
-                                         source => 1,
-                                         source_local => 1,
-                                         destination => 1,
-                                         destination_local => 1,
-                                         schedule => 0,
-                                         config => 0,
+                                         test   => 1,
+                                         config => 1,
                                       });
-    my $source            = $parameters->{source};
-    my $source_local      = $parameters->{source};
-    my $destination       = $parameters->{destination};
-    my $destination_local = $parameters->{destination};
-    my $schedule          = $parameters->{schedule};
-    my $config            = $parameters->{config};
+    my $test   = $parameters->{test};
+    my $config = $parameters->{config};
 
-    eval {
-        #my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX", CLEANUP => 1);
-        my $results_dir = tempdir($config->test_result_directory."/bwctl_XXXXX");
-        $self->_results_directory($results_dir);
-    };
-    if ($@) {
-        die("Couldn't create directory to store results: ".$@);
+    my @individual_tests = $self->get_individual_tests({ test => $test });
+
+    foreach my $test (@individual_tests) {
+        eval {
+            $test->{results_directory} = tempdir($config->test_result_directory."/bwctl_XXXXX");
+        };
+        if ($@) {
+            die("Couldn't create directory to store results: ".$@);
+        }
     }
+
+    $self->_individual_tests(\@individual_tests);
+
+    return;
+};
+
+sub run_individual_test {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, {
+                                         test            => 1,
+                                         individual_test => 1,
+                                         handle_results  => 1,
+                                      });
+    my $test              = $parameters->{test};
+    my $individual_test   = $parameters->{individual_test};
+    my $handle_results    = $parameters->{handle_results};
+
+    my ($bwctl_process, $exiting);
+
+    # Kill off the bwctl process we spawn if we get a SIGTERM
+    $SIG{TERM} = $SIG{KILL} = sub {
+        eval { $bwctl_process->kill_kill() } if ($bwctl_process);
+        $exiting = 1;
+    };
+
+    my $last_start_time;
+
+    my %handled = ();
+    while (1) {
+        my $last_start_time = time;
+
+        eval {
+            last if $exiting;
+
+            my @cmd = $self->build_cmd({ 
+                                         source => $individual_test->{source},
+                                         destination => $individual_test->{destination},
+                                         results_directory => $individual_test->{results_directory},
+                                         schedule => $test->schedule
+                                      });
+
+            my ($out, $err);
+
+            $bwctl_process = start \@cmd, \undef, \$out, \$err;
+            unless ($bwctl_process) {
+                die("Problem running command: $?");
+            }
+
+            while (1) {
+                last if $exiting;
+
+                pump $bwctl_process;
+
+                $logger->debug("IPC::Run::pump returned: out: ".$out." err: ".$err);
+
+                $err = "";
+
+                my @files = split('\n', $out);
+                foreach my $file (@files) {
+                    ($file) = ($file =~ /(.*)/); # untaint the silly filename
+
+                    next if $handled{$file};
+
+                    $logger->debug("bwctl output: $file");
+
+                    open(FILE, $file) or next;
+                    my $contents = do { local $/ = <FILE> };
+                    close(FILE);
+
+                    my $results = $self->build_results({
+                            source => $individual_test->{source},
+                            destination => $individual_test->{destination},
+                            schedule => $test->schedule,
+                            output => $contents,
+                    });
+
+                    next unless $results;
+
+                    eval {
+                        $handle_results->(results => $results);
+                    };
+                    if ($@) {
+                        $logger->error("Problem saving results: $@");
+                        next;
+                    }
+
+                    unlink($file);
+
+                    $handled{$file} = 1;
+                }
+            }
+
+            last if $exiting;
+        };
+
+        if ($@) {
+            $logger->error("Problem running tests: $@");
+            if ($bwctl_process) {
+                eval {
+                    $bwctl_process->kill_kill() 
+                };
+            }
+        }
+
+        last if $exiting;
+
+        my $sleep_time;
+
+        while(($sleep_time = ($last_start_time + 300) - time) > 0) {
+            last if $exiting;
+
+            sleep($sleep_time);
+        }
+    }
+
+    return;
+}
+
+override 'run_test' => sub {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, {
+                                         test           => 1,
+                                         handle_results => 1,
+                                      });
+    my $test              = $parameters->{test};
+    my $handle_results    = $parameters->{handle_results};
+
+    my %children = ();
+
+    foreach my $individual_test (@{ $self->_individual_tests }) {
+        my $pid = fork();
+
+        if ($pid < 0) {
+            $logger->error("Problem running tests: $@");
+            $self->stop_test();
+            return;
+        }
+
+        if ($pid == 0) {
+            $self->run_individual_test({ individual_test => $individual_test, test => $test, handle_results => $handle_results });
+            exit(0);
+        }
+
+        $individual_test->{pid} = $pid;
+
+        $children{$pid} = $individual_test;
+    }
+
+    while(my $pid = waitpid(-1, 0) > 0) { }
 
     return;
 };
@@ -78,26 +246,50 @@ override 'init_test' => sub {
 override 'stop_test' => sub {
     my ($self) = @_;
 
-    if ($self->_bwctl_process) {
-        eval {
-            $self->_bwctl_process->kill_kill() 
-        };
+    my %exited = ();
+
+    foreach my $test (@{ $self->_individual_tests }) {
+        if ($test->{pid}) {
+            kill('TERM', $test->{pid});
+        }
     }
 
-    if ($self->_results_directory) {
-       if (-d $self->_results_directory) {
+    # Wait for the children to exit
+    sleep(1);
+
+    # Reap any children that exited
+    my $pid;
+    do {
+        $pid = waitpid(-1, WNOHANG);
+        $exited{$pid} = 1 if $pid > 0;
+    } while $pid > 0;
+
+    # Kill any remaining children more ... powerfully
+    foreach my $test (@{ $self->_individual_tests }) {
+        if ($test->{pid} and not $exited{$test->{pid}}) {
+            kill('KILL', $test->{pid});
+        }
+    }
+
+    # Remove the directories we created
+    foreach my $test (@{ $self->_individual_tests }) {
+        if (-d $test->{results_directory}) {
            eval {
-               rmtree($self->_results_directory);
+               rmtree($test->{results_directory});
            };
            if ($@) {
-               $logger->error("Couldn't remove: ".$self->_results_directory);
+               $logger->error("Couldn't remove: ".$test->{results_directory});
            }
            else {
-               $logger->debug("Removed: ".$self->_results_directory);
+               $logger->debug("Removed: ".$test->{results_directory});
            }
-       }
+        }
     }
 
+    # Reap any remaining children before we exit
+    do {
+        $pid = waitpid(-1, WNOHANG);
+    } while $pid > 0;
 };
 
 sub build_cmd {
@@ -105,11 +297,13 @@ sub build_cmd {
     my $parameters = validate( @args, {
                                          source => 1,
                                          destination => 1,
+                                         results_directory => 1,
                                          schedule => 0,
                                       });
-    my $source         = $parameters->{source};
-    my $destination    = $parameters->{destination};
-    my $schedule       = $parameters->{schedule};
+    my $source            = $parameters->{source};
+    my $destination       = $parameters->{destination};
+    my $results_directory = $parameters->{results_directory};
+    my $schedule          = $parameters->{schedule};
 
     my @cmd = ();
     push @cmd, ( '-s', $source ) if $source;
@@ -120,103 +314,10 @@ sub build_cmd {
 
     # Add the scheduling information
     push @cmd, ( '-I', $schedule->interval );
-    push @cmd, ( '-p', '-d', $self->_results_directory );
+    push @cmd, ( '-p', '-d', $results_directory );
 
     return @cmd;
 }
-
-override 'run_test' => sub {
-    my ($self, @args) = @_;
-    my $parameters = validate( @args, {
-                                         source => 1,
-                                         source_local => 1,
-                                         destination => 1,
-                                         destination_local => 1,
-                                         schedule => 0,
-                                         handle_results => 1,
-                                      });
-    my $source            = $parameters->{source};
-    my $source_local      = $parameters->{source_local};
-    my $destination       = $parameters->{destination};
-    my $destination_local = $parameters->{destination_local};
-    my $schedule          = $parameters->{schedule};
-    my $handle_results    = $parameters->{handle_results};
-
-    my @cmd = $self->build_cmd({ source => $source, destination => $destination, schedule => $schedule });
-
-    $logger->debug("Executing ".join(" ", @cmd));
-
-    my %handled = ();
-    eval {
-        my ($out, $err);
-
-        my $proc = start \@cmd, \undef, \$out, \$err;
-        $self->_bwctl_process($proc);
-        unless ($self->_bwctl_process) {
-            die("Problem running command: $?");
-        }
-
-        while (1) {
-            pump $self->_bwctl_process;
-
-            $logger->debug("IPC::Run::pump returned: out: ".$out." err: ".$err);
-
-            $err = "";
-
-            my @files = split('\n', $out);
-            foreach my $file (@files) {
-                ($file) = ($file =~ /(.*)/); # untaint the silly filename
-
-                next if $handled{$file};
-
-                $logger->debug("bwctl output: $file");
-
-                open(FILE, $file) or next;
-                my $contents = do { local $/ = <FILE> };
-                close(FILE);
-
-                my $results = $self->build_results({
-                                                      source => $source,
-                                                      destination => $destination,
-                                                      schedule => $schedule,
-                                                      output => $contents,
-                                                  });
-
-                next unless $results;
-
-                eval {
-                    $handle_results->(results => $results);
-                };
-                if ($@) {
-                    $logger->error("Problem saving results: $results");
-                    next;
-                }
-
-                unlink($file);
-
-                $handled{$file} = 1;
-            }
-        }
-    };
-    if ($@) {
-        $logger->error("Problem running tests: $@");
-        if ($self->_bwctl_process) {
-            eval {
-                $self->_bwctl_process->kill_kill() 
-            };
-        }
-    }
-
-    if ($self->_bwctl_process) {
-        eval {
-            finish $self->_bwctl_process;
-        };
-    }
-
-    $self->_bwctl_process(undef);
-
-    return;
-};
 
 sub build_results {
     my ($self, @args) = @_;

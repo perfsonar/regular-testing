@@ -75,7 +75,7 @@ sub init {
     }
 
     # Initialize the tests before spawning processes
-    foreach my $test (values %{ $self->config->tests }) {
+    foreach my $test (@{ $self->config->tests }) {
         $test->init_test(config => $self->config);
     }
 
@@ -107,14 +107,28 @@ sub run {
         $self->children->{$pid} = $child;
     }
 
-    foreach my $test (values %{ $self->config->tests }) {
+    foreach my $test (@{ $self->config->tests }) {
         $logger->debug("Spawning test: ".$test->description);
+
+        my @mas = ();
+
+        if ($test->measurement_archives) {
+            @mas = @{ $test->measurement_archives };
+        }
+        else {
+            @mas = values %{ $self->config->measurement_archives };
+        }
+
+        my @ma_queues = ();
+        foreach my $ma (@mas) {
+            push @ma_queues, { ma => $ma, queue => $self->ma_active_queues->{$ma->id} };
+        }
 
         my $child = perfSONAR_PS::RegularTesting::Master::SelfScheduledTestChild->new();
 
         $child->test($test);
         $child->config($self->config);
-        $child->ma_queues($self->ma_active_queues);
+        $child->ma_queues(\@ma_queues);
 
         my $pid = $child->run();
         $self->children->{$pid} = $child;
@@ -195,6 +209,15 @@ sub handle_exit {
     $logger->debug("Process '".$0."' exiting");
 
     exit(0);
+}
+
+sub exec_command {
+    my ($self, @args) = @_;
+    my $parameters = validate( @args, { 
+                                         cmd => 1,
+                                      });
+    my $cmd = $parameters->{cmd};
+
 }
 
 1;

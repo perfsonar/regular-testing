@@ -33,11 +33,13 @@ override 'build_cmd' => sub {
     my $parameters = validate( @args, {
                                          source => 1,
                                          destination => 1,
+                                         results_directory => 1,
                                          schedule => 0,
                                       });
-    my $source         = $parameters->{source};
-    my $destination    = $parameters->{destination};
-    my $schedule       = $parameters->{schedule};
+    my $source            = $parameters->{source};
+    my $destination       = $parameters->{destination};
+    my $results_directory = $parameters->{results_directory};
+    my $schedule          = $parameters->{schedule};
 
     my @cmd = ();
     push @cmd, $self->bwtraceroute_cmd;

@@ -15,8 +15,6 @@ use Class::MOP::Class;
 
 my $logger = get_logger(__PACKAGE__);
 
-has 'description' => (is => 'rw', isa => 'Str');
-
 sub type {
     die("'type' needs to be overridden");
 }
@@ -38,7 +36,7 @@ sub run_test {
 }
 
 sub stop_test {
-    die("'run_test' needs to be overridden");
+    die("'stop_test' needs to be overridden");
 }
 
 sub valid_target {

@@ -17,7 +17,7 @@ extends 'perfSONAR_PS::RegularTesting::Master::BaseChild';
 
 has 'test'              => (is => 'rw', isa => 'perfSONAR_PS::RegularTesting::Test');
 
-has 'ma_queues'         => (is => 'rw', isa => 'HashRef', default => sub { {} } );
+has 'ma_queues'         => (is => 'rw', isa => 'ArrayRef', default => sub { [] } );
 
 has 'last_restart_time' => (is => 'rw', isa => 'Int');
 
@@ -80,15 +80,14 @@ sub save_results {
 
     my $enqueued;
 
-    foreach my $measurement_archive (@{ $self->test->measurement_archives }) {
+    foreach my $ma_info (@{ $self->ma_queues }) {
+        my $measurement_archive = $ma_info->{ma};
+        my $queue               = $ma_info->{queue};
+
         if ($measurement_archive->accepts_results({ results => $results })) {
             $logger->debug("Enqueueing job to: ".$measurement_archive->nonce);
 
-            my $queue = $self->ma_queues->{$measurement_archive->id};
-            unless ($queue) {
-                $logger->error("No queue available for measurement archive");
-            }
-            elsif ($queue->enqueue_string($json)) {
+            if ($queue->enqueue_string($json)) {
                 $logger->error("Problem saving test results to measurement archive");
             }
             else {

@@ -18,7 +18,7 @@ extends 'perfSONAR_PS::RegularTesting::Tests::BwctlBase';
 
 has 'bwctl_cmd' => (is => 'rw', isa => 'Str', default => '/usr/bin/bwctl');
 has 'tool' => (is => 'rw', isa => 'Str', default => 'iperf');
-has 'use_udp' => (is => 'rw', isa => 'Bool');
+has 'use_udp' => (is => 'rw', isa => 'Bool', default => 0);
 has 'streams' => (is => 'rw', isa => 'Int', default => 1);
 has 'duration' => (is => 'rw', isa => 'Int', default => 10);
 has 'udp_bandwidth' => (is => 'rw', isa => 'Int');
@@ -33,11 +33,13 @@ override 'build_cmd' => sub {
     my $parameters = validate( @args, {
                                          source => 1,
                                          destination => 1,
+                                         results_directory => 1,
                                          schedule => 0,
                                       });
-    my $source         = $parameters->{source};
-    my $destination    = $parameters->{destination};
-    my $schedule       = $parameters->{schedule};
+    my $source            = $parameters->{source};
+    my $destination       = $parameters->{destination};
+    my $results_directory = $parameters->{results_directory};
+    my $schedule          = $parameters->{schedule};
 
     my @cmd = ();
     push @cmd, $self->bwctl_cmd;

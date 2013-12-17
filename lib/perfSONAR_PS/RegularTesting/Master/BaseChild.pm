@@ -66,7 +66,7 @@ sub child_initialize_signals {
     return;
 }
 
-sub child_main_loop() {
+sub child_main_loop {
     my ($self) = @_;
 
     die("'child_main_loop' needs to be overridden");
