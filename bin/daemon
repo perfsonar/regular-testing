@@ -7,7 +7,6 @@ use FindBin qw($RealBin);
 use lib "$RealBin/../lib";
 
 use Carp;
-use Config::General;
 use Getopt::Long;
 use English '-no_match_vars';
 use Fcntl qw(:DEFAULT :flock);
@@ -15,6 +14,7 @@ use Log::Log4perl qw(:easy);
 use POSIX qw(setsid);
 
 use perfSONAR_PS::RegularTesting::Master;
+use perfSONAR_PS::RegularTesting::Utils::ConfigFile qw(parse_file);
 
 my $CONFIG_FILE = "$RealBin/../etc/regular_testing.conf";
 my $PID_DIR  = "/var/run";
@@ -41,8 +41,6 @@ $status = GetOptions(
     'verbose'     => \$DEBUGFLAG,
     'help'        => \$HELP
 );
-
-my %conf = Config::General->new( $CONFIG_FILE )->getall();
 
 # Check for an existing instance before we drop privileges
 if ($DAEMONIZE) {
@@ -81,9 +79,17 @@ else {
 
 $logger = get_logger( "perfSONAR_PS" );
 
+my ($status, $res) = parse_file(file => $CONFIG_FILE);
+if ($status != 0) {
+    $logger->error("Problem parsing configuration file: $res");
+    exit(-1);
+}
+
+my $config = $res;
+
 my $master = perfSONAR_PS::RegularTesting::Master->new();
 eval {
-    $master->init({ config => \%conf });
+    $master->init({ config => $config });
 };
 if ($@) {
     $logger->error("Problem initializing regular testing: ".$@);
