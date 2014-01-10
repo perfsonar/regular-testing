@@ -53,11 +53,11 @@ chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 %defattr(0644,perfsonar,perfsonar,0755)
 #%doc %{install_base}/doc/*
 %config %{install_base}/etc/*
-%{install_base}/bin/*
-%{install_base}/scripts/*
+%attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
+%attr(0755,perfsonar,perfsonar) %{install_base}/scripts/*
 %{install_base}/lib/*
 %{install_base}/dependencies
-/etc/init.d/*
+%attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
 %changelog
 * Wed Dec 04 2013 aaron@internet2.edu 3.3.2-1
