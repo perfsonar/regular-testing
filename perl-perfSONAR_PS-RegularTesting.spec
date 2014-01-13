@@ -7,7 +7,7 @@
 %define disttag pSPS
 
 Name:			perl-perfSONAR_PS-RegularTesting
-Version:		3.3.2
+Version:		3.4
 Release:		%{relnum}.%{disttag}
 Summary:		perfSONAR_PS Regular Testing
 License:		Distributable, see LICENSE

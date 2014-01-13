@@ -1,6 +1,6 @@
 PACKAGE=perfSONAR_PS-RegularTesting
 ROOTPATH=/opt/perfsonar_ps/regular_testing
-VERSION=3.3.2
+VERSION=3.4
 RELEASE=1
 
 default:
