@@ -51,8 +51,7 @@ chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 
 %files
 %defattr(0644,perfsonar,perfsonar,0755)
-#%doc %{install_base}/doc/*
-%config %{install_base}/etc/*
+%config(noreplace) %{install_base}/etc/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/scripts/*
 %{install_base}/lib/*
