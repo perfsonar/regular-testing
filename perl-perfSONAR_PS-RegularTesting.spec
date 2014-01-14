@@ -17,6 +17,42 @@ Source0:		perfSONAR_PS-RegularTesting-%{version}.%{relnum}.tar.gz
 BuildRoot:		%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:		noarch
 
+Requires:		perl(Carp)
+Requires:		perl(Class::MOP::Class)
+Requires:		perl(Config::General)
+Requires:		perl(DBI)
+Requires:		perl(Data::Dumper)
+Requires:		perl(Data::UUID)
+Requires:		perl(Data::Validate::Domain)
+Requires:		perl(Data::Validate::IP)
+Requires:		perl(DateTime)
+Requires:		perl(DateTime::Format::ISO8601)
+Requires:		perl(Digest::MD5)
+Requires:		perl(English)
+Requires:		perl(Exporter)
+Requires:		perl(Fcntl)
+Requires:		perl(File::Path)
+Requires:		perl(File::Spec)
+Requires:		perl(File::Temp)
+Requires:		perl(FindBin)
+Requires:		perl(Getopt::Long)
+Requires:		perl(HTTP::Response)
+Requires:		perl(IO::Socket::SSL)
+Requires:		perl(IPC::DirQueue)
+Requires:		perl(IPC::Run)
+Requires:		perl(JSON)
+Requires:		perl(Log::Log4perl)
+Requires:		perl(Math::Int64)
+Requires:		perl(Module::Load)
+Requires:		perl(Moose)
+Requires:		perl(Net::IP)
+Requires:		perl(Net::Traceroute)
+Requires:		perl(POSIX)
+Requires:		perl(Params::Validate)
+Requires:		perl(Statistics::Descriptive)
+Requires:		perl(Time::HiRes)
+Requires:		perl(URI::Split)
+
 %description
 The perfSONAR-PS Regular Testing package allows the configuration of regular
 tests whose results are stored in a perfSONAR Measurement Archive.
@@ -59,5 +95,5 @@ chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
 %changelog
-* Wed Dec 04 2013 aaron@internet2.edu 3.3.2-1
+* Tue Jan 14 2013 aaron@internet2.edu 3.4-1
 - Initial RPM
