@@ -21,7 +21,6 @@ Requires:		perl(Carp)
 Requires:		perl(Class::MOP::Class)
 Requires:		perl(Config::General)
 Requires:		perl(DBI)
-Requires:		perl(Data::Dumper)
 Requires:		perl(Data::UUID)
 Requires:		perl(Data::Validate::Domain)
 Requires:		perl(Data::Validate::IP)
@@ -37,8 +36,10 @@ Requires:		perl(File::Temp)
 Requires:		perl(FindBin)
 Requires:		perl(Getopt::Long)
 Requires:		perl(HTTP::Response)
+Requires:		perl(IO::Select)
 Requires:		perl(IO::Socket::SSL)
 Requires:		perl(IPC::DirQueue)
+Requires:		perl(IPC::Open3)
 Requires:		perl(IPC::Run)
 Requires:		perl(JSON)
 Requires:		perl(Log::Log4perl)
@@ -50,6 +51,7 @@ Requires:		perl(Net::Traceroute)
 Requires:		perl(POSIX)
 Requires:		perl(Params::Validate)
 Requires:		perl(Statistics::Descriptive)
+Requires:		perl(Symbol)
 Requires:		perl(Time::HiRes)
 Requires:		perl(URI::Split)
 
@@ -91,7 +93,6 @@ chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 %attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/scripts/*
 %{install_base}/lib/*
-%{install_base}/dependencies
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
 %changelog
