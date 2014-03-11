@@ -79,7 +79,7 @@ else {
 
 $logger = get_logger( "perfSONAR_PS" );
 
-my ($status, $res) = parse_file(file => $CONFIG_FILE);
+($status, $res) = parse_file(file => $CONFIG_FILE);
 if ($status != 0) {
     $logger->error("Problem parsing configuration file: $res");
     exit(-1);
