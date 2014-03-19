@@ -2,6 +2,7 @@ Carp
 Class::MOP::Class
 Config::General
 DBI
+Data::Dumper
 Data::UUID
 Data::Validate::Domain
 Data::Validate::IP
@@ -23,6 +24,7 @@ IPC::DirQueue
 IPC::Open3
 IPC::Run
 JSON
+LWP
 Log::Log4perl
 Math::Int64
 Module::Load
