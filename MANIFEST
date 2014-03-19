@@ -28,6 +28,7 @@ lib/perfSONAR_PS/RegularTesting/Parsers/Iperf.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Iperf3.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Owamp.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Ping.pm
+lib/perfSONAR_PS/RegularTesting/Parsers/Tracepath.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Traceroute.pm
 lib/perfSONAR_PS/RegularTesting/Results/Base.pm
 lib/perfSONAR_PS/RegularTesting/Results/Endpoint.pm
