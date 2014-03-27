@@ -1,7 +1,7 @@
 PACKAGE=perfSONAR_PS-RegularTesting
 ROOTPATH=/opt/perfsonar_ps/regular_testing
 VERSION=3.4
-RELEASE=1
+RELEASE=3
 
 default:
 	@echo No need to build the package. Just run \"make install\"
@@ -23,7 +23,7 @@ upgrade:
 
 rpminstall:
 	mkdir -p ${ROOTPATH}
-	tar ch --exclude=etc/* --exclude=*spec --exclude=MANIFEST --exclude=Makefile -T MANIFEST | tar x -C ${ROOTPATH}
+	tar ch --exclude=etc/* --exclude=*spec --exclude=dependencies --exclude=MANIFEST --exclude=Makefile -T MANIFEST | tar x -C ${ROOTPATH}
 	for i in `cat MANIFEST | grep ^etc`; do  mkdir -p `dirname $(ROOTPATH)/$${i}`; if [ -e $(ROOTPATH)/$${i} ]; then install -m 640 -c $${i} $(ROOTPATH)/$${i}.new; else install -m 640 -c $${i} $(ROOTPATH)/$${i}; fi; done
 
 install:
