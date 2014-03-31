@@ -18,6 +18,7 @@ File::Temp
 FindBin
 Getopt::Long
 HTTP::Response
+Hash::Merge
 IO::Select
 IO::Socket::SSL
 IPC::DirQueue
