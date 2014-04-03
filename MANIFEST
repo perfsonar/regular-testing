@@ -57,5 +57,6 @@ lib/perfSONAR_PS/RegularTesting/Utils/CmdRunner.pm
 lib/perfSONAR_PS/RegularTesting/Utils/CmdRunner/Cmd.pm
 lib/perfSONAR_PS/RegularTesting/Utils/ConfigFile.pm
 lib/perfSONAR_PS/RegularTesting/Utils/SerializableObject.pm
+lib/perfSONAR_PS/Utils/DNS.pm
 perl-perfSONAR_PS-RegularTesting.spec
 scripts/regular_testing
