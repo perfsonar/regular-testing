@@ -30,10 +30,14 @@ Log::Log4perl
 Math::Int64
 Module::Load
 Moose
+Net::DNS
 Net::IP
 Net::Traceroute
+NetAddr::IP
 POSIX
 Params::Validate
+Regexp::Common
+Socket6
 Statistics::Descriptive
 Symbol
 Time::HiRes
