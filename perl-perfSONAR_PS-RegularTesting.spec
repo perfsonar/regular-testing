@@ -3,7 +3,7 @@
 # init scripts must be located in the 'scripts' directory
 %define init_script_1 regular_testing
 
-%define relnum 6
+%define relnum 7 
 %define disttag pSPS
 
 Name:			perl-perfSONAR_PS-RegularTesting
@@ -100,5 +100,8 @@ chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
 %changelog
+* Thu Jun 19 2014 andy@es.net 3.4-7
+- Added support for new MA
+
 * Tue Jan 14 2013 aaron@internet2.edu 3.4-1
 - Initial RPM
