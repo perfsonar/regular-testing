@@ -3,7 +3,7 @@
 # init scripts must be located in the 'scripts' directory
 %define init_script_1 regular_testing
 
-%define relnum 7 
+%define relnum 8 
 %define disttag pSPS
 
 Name:			perl-perfSONAR_PS-RegularTesting
