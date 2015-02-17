@@ -1,0 +1,42 @@
+--- a/bin/daemon
++++ b/bin/daemon
+@@ -16,9 +16,9 @@
+ use perfSONAR_PS::RegularTesting::Master;
+ use perfSONAR_PS::RegularTesting::Utils::ConfigFile qw(parse_file);
+ 
+-my $CONFIG_FILE = "$RealBin/../etc/regular_testing.conf";
++my $CONFIG_FILE = "/etc/perfsonar/regulartesting.conf";
+ my $PID_DIR  = "/var/run";
+-my $PID_FILE = "regular_testing.pid";
++my $PID_FILE = "regulartesting.pid";
+ my $LOGGER_CONF;
+ my $DEBUGFLAG;
+ my $DAEMONIZE;
+--- a/etc/regular_testing-logger.conf
++++ b/etc/regular_testing-logger.conf
+@@ -11,7 +11,7 @@
+ log4perl.appender.A1=Log::Dispatch::FileRotate
+ 
+   # alter location of the log file below
+-log4perl.appender.A1.filename=/var/log/perfsonar/regular_testing.log
++log4perl.appender.A1.filename=/var/log/perfsonar/regulartesting.log
+ log4perl.appender.A1.max=7
+ log4perl.appender.A1.DatePattern=yyyy-MM-dd
+ log4perl.appender.A1.mode=append
+--- a/etc/regular_testing.conf
++++ b/etc/regular_testing.conf
+@@ -1,5 +1,5 @@
+ # Directory where tests will be written to before going to the MA
+-test_result_directory /var/lib/perfsonar/regular_testing
++test_result_directory /var/lib/perfsonar/regulartesting
+ 
+ ####
+ #  Default Toolkit Measurement Archives
+@@ -15,7 +15,6 @@
+ 
+ # Default perfSONAR Toolkit perfSONARBUOY database for bwctl tests
+ <measurement_archive>
+-
+     type      perfsonarbuoy/bwctl
+     database  bwctl
+     username  perfsonar

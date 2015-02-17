@@ -1,0 +1,4 @@
+#!/usr/bin/dh-exec
+bin/daemon => /usr/lib/perfsonar/bin/regulartesting.pl
+etc/regular_testing.conf => /etc/perfsonar/regulartesting.conf
+etc/regular_testing-logger.conf => /etc/perfsonar/regulartesting-logger.conf
