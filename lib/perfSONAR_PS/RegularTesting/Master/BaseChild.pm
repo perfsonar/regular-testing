@@ -1,1 +1,1 @@
-../../../../../Shared/lib/perfSONAR_PS/RegularTesting/Master/BaseChild.pm
+../../../../shared/lib/perfSONAR_PS/RegularTesting/Master/BaseChild.pm
