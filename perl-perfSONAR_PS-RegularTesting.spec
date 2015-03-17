@@ -3,11 +3,11 @@
 # init scripts must be located in the 'scripts' directory
 %define init_script_1 regular_testing
 
-%define relnum  15 
+%define relnum   3 
 %define disttag pSPS
 
 Name:			perl-perfSONAR_PS-RegularTesting
-Version:		3.4
+Version:		3.4.2
 Release:		%{relnum}.%{disttag}
 Summary:		perfSONAR_PS Regular Testing
 License:		Distributable, see LICENSE
