@@ -21,7 +21,7 @@
 -log4perl.appender.A1.filename=/var/log/perfsonar/regular_testing.log
 +log4perl.appender.A1.filename=/var/log/perfsonar/regulartesting.log
  log4perl.appender.A1.max=7
- log4perl.appender.A1.DatePattern=yyyy-MM-dd
+ log4perl.appender.A1.size=16777216
  log4perl.appender.A1.mode=append
 --- a/etc/regular_testing.conf
 +++ b/etc/regular_testing.conf
