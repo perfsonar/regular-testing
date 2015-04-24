@@ -1,4 +1,4 @@
-perfsonar-regulartesting (3.4.2-1) UNRELEASED; urgency=low
+perfsonar-regulartesting (3.4.2-1) unstable; urgency=low
 
   * Port to Debian.
 
