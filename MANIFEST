@@ -24,6 +24,7 @@ lib/perfSONAR_PS/RegularTesting/MeasurementArchives/perfSONARBUOYBase.pm
 lib/perfSONAR_PS/RegularTesting/MeasurementArchives/perfSONARBUOYBwctl.pm
 lib/perfSONAR_PS/RegularTesting/MeasurementArchives/perfSONARBUOYOwamp.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Bwctl.pm
+lib/perfSONAR_PS/RegularTesting/Parsers/Bwctl2.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Iperf.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Iperf3.pm
 lib/perfSONAR_PS/RegularTesting/Parsers/Owamp.pm
@@ -47,10 +48,15 @@ lib/perfSONAR_PS/RegularTesting/Target.pm
 lib/perfSONAR_PS/RegularTesting/Test.pm
 lib/perfSONAR_PS/RegularTesting/Tests/Base.pm
 lib/perfSONAR_PS/RegularTesting/Tests/Bwctl.pm
+lib/perfSONAR_PS/RegularTesting/Tests/Bwctl2.pm
 lib/perfSONAR_PS/RegularTesting/Tests/BwctlBase.pm
+lib/perfSONAR_PS/RegularTesting/Tests/Bwctl2Base.pm
 lib/perfSONAR_PS/RegularTesting/Tests/Bwping.pm
+lib/perfSONAR_PS/RegularTesting/Tests/Bwping2.pm
 lib/perfSONAR_PS/RegularTesting/Tests/BwpingOwamp.pm
+lib/perfSONAR_PS/RegularTesting/Tests/Bwping2Owamp.pm
 lib/perfSONAR_PS/RegularTesting/Tests/Bwtraceroute.pm
+lib/perfSONAR_PS/RegularTesting/Tests/Bwtraceroute2.pm
 lib/perfSONAR_PS/RegularTesting/Tests/Powstream.pm
 lib/perfSONAR_PS/RegularTesting/Utils.pm
 lib/perfSONAR_PS/RegularTesting/Utils/CmdRunner.pm
