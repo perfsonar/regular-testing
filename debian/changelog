@@ -1,3 +1,9 @@
+perfsonar-regulartesting (3.5~0.a1.1-1) UNRELEASED; urgency=low
+
+  * TO BE FILLED IN...
+
+ -- Antoine Delvaux <adelvaux@man.poznan.pl>  Thu, 18 Jun 2015 08:46:11 +0100
+
 perfsonar-regulartesting (3.5~0.a1-1) staging; urgency=low
 
   * Adding support for bwctl2
