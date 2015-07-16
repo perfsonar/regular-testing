@@ -73,6 +73,9 @@ do
     restart)
     	$0 stop; echo "waiting..."; sleep 10; $0 start;
 	;;
+    status)
+        echo $STATUS
+        ;;
     *)
 	echo "usage: $0 (start|stop|restart|help)"
 	cat <<EOF
@@ -81,6 +84,7 @@ start      - start perfSONAR Regular Testing
 stop       - stop perfSONAR Regular Testing
 restart    - restart perfSONAR Regular Testing if running by sending a SIGHUP or start if 
              not running
+status     - report if tool is running
 help       - this screen
 
 EOF
