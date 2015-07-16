@@ -31,12 +31,4 @@
 +test_result_directory /var/lib/perfsonar/regulartesting
  
  ####
- #  Default Toolkit Measurement Archives
-@@ -15,7 +15,6 @@
- 
- # Default perfSONAR Toolkit perfSONARBUOY database for bwctl tests
- <measurement_archive>
--
-     type      perfsonarbuoy/bwctl
-     database  bwctl
-     username  perfsonar
+ #  Example tests
