@@ -23,6 +23,8 @@ case "$1" in
         # Queue directory
         mkdir -p /var/lib/perfsonar/regulartesting
         chown perfsonar:perfsonar /var/lib/perfsonar/regulartesting
+        # Configuration need to be writable by perfsonar user
+        chown perfsonar:perfsonar /etc/perfsonar/regulartesting.conf
     ;;
 
     abort-upgrade|abort-remove|abort-deconfigure)
