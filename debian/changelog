@@ -1,8 +1,8 @@
-perfsonar-regulartesting (3.5~3.rc2-2) perfsonar-wheezy-staging; urgency=low
+perfsonar-regulartesting (3.5~4.rc2-1) perfsonar-wheezy-staging; urgency=low
 
   * Adding support for paris-traceroute
 
- -- Antoine Delvaux <adelvaux@man.poznan.pl>  Wed, 09 Sep 2015 14:00:59 +0000
+ -- Antoine Delvaux <adelvaux@man.poznan.pl>  Fri, 18 Sep 2015 10:52:29 +0000
 
 perfsonar-regulartesting (3.5~0.a1-1) staging; urgency=low
 
