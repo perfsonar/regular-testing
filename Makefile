@@ -1,7 +1,7 @@
 PACKAGE=perfSONAR_PS-RegularTesting
 ROOTPATH=/opt/perfsonar_ps/regular_testing
 VERSION=3.5
-RELEASE=0.5.rc2
+RELEASE=1
 
 default:
 	@echo No need to build the package. Just run \"make install\"
