@@ -4,11 +4,10 @@
 %define init_script_1 regular_testing
 
 %define relnum   1 
-%define disttag pSPS
 
 Name:			perl-perfSONAR_PS-RegularTesting
 Version:		3.5
-Release:		%{relnum}.%{disttag}
+Release:		%{relnum}
 Summary:		perfSONAR_PS Regular Testing
 License:		Distributable, see LICENSE
 Group:			Development/Libraries
