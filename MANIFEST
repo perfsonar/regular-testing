@@ -1,9 +1,9 @@
 MANIFEST
 Makefile
-bin/daemon
+bin/regulartesting.pl
 dependencies
-etc/regular_testing-logger.conf
-etc/regular_testing.conf
+etc/regulartesting-logger.conf
+etc/regulartesting.conf
 lib/perfSONAR_PS/RegularTesting/Config.pm
 lib/perfSONAR_PS/RegularTesting/DirQueue.pm
 lib/perfSONAR_PS/RegularTesting/EventQueue/Event.pm
@@ -65,5 +65,4 @@ lib/perfSONAR_PS/RegularTesting/Utils/CmdRunner/Cmd.pm
 lib/perfSONAR_PS/RegularTesting/Utils/ConfigFile.pm
 lib/perfSONAR_PS/RegularTesting/Utils/SerializableObject.pm
 lib/perfSONAR_PS/Utils/DNS.pm
-perl-perfSONAR_PS-RegularTesting.spec
-scripts/regular_testing
+scripts/perfsonar-regulartesting

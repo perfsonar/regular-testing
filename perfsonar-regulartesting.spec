@@ -1,20 +1,22 @@
-%define install_base /opt/perfsonar_ps/regular_testing
+%define install_base /usr/lib/perfsonar/
+%define config_base  /etc/perfsonar
 
 # init scripts must be located in the 'scripts' directory
-%define init_script_1 regular_testing
+%define init_script_1 perfsonar-regulartesting
 
-%define relnum   1 
+%define relnum   0.0.a1 
 
-Name:			perl-perfSONAR_PS-RegularTesting
-Version:		3.5
+Name:			perfsonar-regulartesting
+Version:		3.5.1
 Release:		%{relnum}
-Summary:		perfSONAR_PS Regular Testing
+Summary:		perfSONAR Regular Testing
 License:		Distributable, see LICENSE
 Group:			Development/Libraries
-URL:			http://search.cpan.org/dist/perfSONAR_PS-RegularTesting/
-Source0:		perfSONAR_PS-RegularTesting-%{version}.%{relnum}.tar.gz
+URL:			http://search.cpan.org/dist/perfSONAR-RegularTesting/
+Source0:		perfsonar-regulartesting-%{version}.%{relnum}.tar.gz
 BuildRoot:		%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:		noarch
+Obsoletes:      perl-perfSONAR_PS-RegularTesting
 
 Requires:		perl(Carp)
 Requires:		perl(Class::MOP::Class)
@@ -67,19 +69,19 @@ tests whose results are stored in a perfSONAR Measurement Archive.
 /usr/sbin/useradd -g perfsonar -r -s /sbin/nologin -c "perfSONAR User" -d /tmp perfsonar 2> /dev/null || :
 
 %prep
-%setup -q -n perfSONAR_PS-RegularTesting-%{version}.%{relnum}
+%setup -q -n perfsonar-regulartesting-%{version}.%{relnum}
 
 %build
 
 %install
 rm -rf %{buildroot}
 
-make ROOTPATH=%{buildroot}/%{install_base} rpminstall
+make ROOTPATH=%{buildroot}/%{install_base} CONFIGPATH=%{buildroot}/%{config_base} install
 
 mkdir -p %{buildroot}/etc/init.d
 
-awk "{gsub(/^PREFIX=.*/,\"PREFIX=%{install_base}\"); print}" scripts/%{init_script_1} > scripts/%{init_script_1}.new
-install -D -m 0755 scripts/%{init_script_1}.new %{buildroot}/etc/init.d/%{init_script_1}
+install -D -m 0755 scripts/%{init_script_1} %{buildroot}/etc/init.d/%{init_script_1}
+rm -rf %{buildroot}/%{install_base}/scripts/
 
 %clean
 rm -rf %{buildroot}
@@ -88,13 +90,32 @@ rm -rf %{buildroot}
 mkdir -p /var/lib/perfsonar/regular_testing
 chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
 
+if [ "$1" = "2" ]; then
+
+    #Update config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
+    if [ -L "%{config_base}/regulartesting.conf" ]; then
+        echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf will be moved to %{config_base}/regulartesting.conf in 3.6. Update configuration management software as soon as possible. "
+    elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing.conf" ]; then
+        mv %{config_base}/regulartesting.conf %{config_base}/regulartesting.conf.default
+        ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf %{config_base}/regulartesting.conf
+    fi
+    
+     #Update logging config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
+    if [ -L "%{config_base}/regulartesting-logger.conf" ]; then
+        echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf will be moved to %{config_base}/regulartesting-logger.conf in 3.6. Update configuration management software as soon as possible. "
+    elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf" ]; then
+        mv %{config_base}/regulartesting-logger.conf %{config_base}/regulartesting-logger.conf.default
+        ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
+    fi
+fi
+
 /sbin/chkconfig --add regular_testing
+
 
 %files
 %defattr(0644,perfsonar,perfsonar,0755)
-%config(noreplace) %{install_base}/etc/*
+%config(noreplace) %{config_base}/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
-%attr(0755,perfsonar,perfsonar) %{install_base}/scripts/*
 %{install_base}/lib/*
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
