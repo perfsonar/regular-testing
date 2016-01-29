@@ -4,7 +4,7 @@
 # init scripts must be located in the 'scripts' directory
 %define init_script_1 perfsonar-regulartesting
 
-%define relnum   0.0.a1 
+%define relnum   0.1.a1 
 
 Name:			perfsonar-regulartesting
 Version:		3.5.1
@@ -12,56 +12,16 @@ Release:		%{relnum}
 Summary:		perfSONAR Regular Testing
 License:		Distributable, see LICENSE
 Group:			Development/Libraries
-URL:			http://search.cpan.org/dist/perfSONAR-RegularTesting/
+URL:			http://www.perfsonar.net
 Source0:		perfsonar-regulartesting-%{version}.%{relnum}.tar.gz
 BuildRoot:		%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:		noarch
 Obsoletes:      perl-perfSONAR_PS-RegularTesting
-
-Requires:		perl(Carp)
-Requires:		perl(Class::MOP::Class)
-Requires:		perl(Config::General)
-Requires:		perl(DBI)
-Requires:		perl(Data::UUID)
-Requires:		perl(Data::Validate::Domain)
-Requires:		perl(Data::Validate::IP)
-Requires:		perl(DateTime)
-Requires:		perl(DateTime::Format::ISO8601)
-Requires:		perl(Digest::MD5)
-Requires:		perl(English)
-Requires:		perl(Exporter)
-Requires:		perl(Fcntl)
-Requires:		perl(File::Path)
-Requires:		perl(File::Spec)
-Requires:		perl(File::Temp)
-Requires:		perl(FindBin)
-Requires:		perl(Getopt::Long)
-Requires:		perl(HTTP::Response)
-Requires:		perl(IO::Select)
-Requires:		perl(IO::Socket::SSL)
-Requires:		perl(IO::Socket::INET6)
-Requires:		perl(IPC::DirQueue)
-Requires:		perl(IPC::Open3)
-Requires:		perl(IPC::Run)
-Requires:		perl(JSON)
-Requires:		perl(Log::Log4perl)
-Requires:		perl(Math::Int64)
-Requires:		perl(Module::Load)
-Requires:		perl(Moose)
-Requires:		perl(Net::DNS)
-Requires:		perl(Net::IP)
-Requires:		perl(Net::Traceroute)
-Requires:		perl(NetAddr::IP)
-Requires:		perl(POSIX)
-Requires:		perl(Params::Validate)
-Requires:		perl(Regexp::Common)
-Requires:		perl(Statistics::Descriptive)
-Requires:		perl(Symbol)
-Requires:		perl(Time::HiRes)
-Requires:		perl(URI::Split)
+Requires:		libperfsonar-regulartesting-perl
+Requires:		libperfsonar-perl
 
 %description
-The perfSONAR-PS Regular Testing package allows the configuration of regular
+The perfSONAR Regular Testing package allows the configuration of regular
 tests whose results are stored in a perfSONAR Measurement Archive.
 
 %pre
@@ -116,7 +76,6 @@ fi
 %defattr(0644,perfsonar,perfsonar,0755)
 %config(noreplace) %{config_base}/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
-%{install_base}/lib/*
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 
 %changelog
