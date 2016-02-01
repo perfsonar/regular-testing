@@ -47,8 +47,8 @@ rm -rf %{buildroot}/%{install_base}/scripts/
 rm -rf %{buildroot}
 
 %post
-mkdir -p /var/lib/perfsonar/regular_testing
-chown perfsonar:perfsonar /var/lib/perfsonar/regular_testing
+mkdir -p /var/lib/perfsonar/regulartesting
+chown perfsonar:perfsonar /var/lib/perfsonar/regulartesting
 
 if [ "$1" = "2" ]; then
 
@@ -69,7 +69,7 @@ if [ "$1" = "2" ]; then
     fi
 fi
 
-/sbin/chkconfig --add regular_testing
+/sbin/chkconfig --add perfsonar-regulartesting
 
 
 %files
