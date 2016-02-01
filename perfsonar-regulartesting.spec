@@ -50,23 +50,22 @@ rm -rf %{buildroot}
 mkdir -p /var/lib/perfsonar/regulartesting
 chown perfsonar:perfsonar /var/lib/perfsonar/regulartesting
 
-if [ "$1" = "2" ]; then
+#Update config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
+if [ -L "%{config_base}/regulartesting.conf" ]; then
+    echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf will be moved to %{config_base}/regulartesting.conf in 3.6. Update configuration management software as soon as possible. "
+elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing.conf" ]; then
+    mv %{config_base}/regulartesting.conf %{config_base}/regulartesting.conf.default
+    ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf %{config_base}/regulartesting.conf
+    sed -i "s:/var/lib/perfsonar/regular_testing:/var/lib/perfsonar/regulartesting:g" /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf
+fi
 
-    #Update config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
-    if [ -L "%{config_base}/regulartesting.conf" ]; then
-        echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf will be moved to %{config_base}/regulartesting.conf in 3.6. Update configuration management software as soon as possible. "
-    elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing.conf" ]; then
-        mv %{config_base}/regulartesting.conf %{config_base}/regulartesting.conf.default
-        ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf %{config_base}/regulartesting.conf
-    fi
-    
-     #Update logging config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
-    if [ -L "%{config_base}/regulartesting-logger.conf" ]; then
-        echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf will be moved to %{config_base}/regulartesting-logger.conf in 3.6. Update configuration management software as soon as possible. "
-    elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf" ]; then
-        mv %{config_base}/regulartesting-logger.conf %{config_base}/regulartesting-logger.conf.default
-        ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
-    fi
+#Update logging config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
+if [ -L "%{config_base}/regulartesting-logger.conf" ]; then
+    echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf will be moved to %{config_base}/regulartesting-logger.conf in 3.6. Update configuration management software as soon as possible. "
+elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf" ]; then
+    mv %{config_base}/regulartesting-logger.conf %{config_base}/regulartesting-logger.conf.default
+    ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
+    sed -i "s:regular_testing.log:regulartesting.log:g" /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf
 fi
 
 /sbin/chkconfig --add perfsonar-regulartesting
