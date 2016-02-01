@@ -70,6 +70,18 @@ fi
 
 /sbin/chkconfig --add perfsonar-regulartesting
 
+%preun
+if [ "$1" = "0" ]; then
+	# Totally removing the service
+	/etc/init.d/%{init_script_1} stop
+	/sbin/chkconfig --del %{init_script_1}
+fi
+
+%postun
+if [ "$1" != "0" ]; then
+	# An RPM upgrade
+	/etc/init.d/%{init_script_1} restart
+fi
 
 %files
 %defattr(0644,perfsonar,perfsonar,0755)
