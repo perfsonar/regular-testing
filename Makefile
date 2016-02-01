@@ -2,7 +2,7 @@ PACKAGE=perfsonar-regulartesting
 ROOTPATH=/usr/lib/perfsonar
 CONFIGPATH=/etc/perfsonar
 VERSION=3.5.1
-RELEASE=0.0.a1
+RELEASE=0.1.a1
 
 default:
 	@echo No need to build the package. Just run \"make install\"
