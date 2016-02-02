@@ -16,9 +16,10 @@ URL:			http://www.perfsonar.net
 Source0:		perfsonar-regulartesting-%{version}.%{relnum}.tar.gz
 BuildRoot:		%{_tmppath}/%{name}-%{version}-%{release}-root-%(%{__id_u} -n)
 BuildArch:		noarch
-Obsoletes:      perl-perfSONAR_PS-RegularTesting
 Requires:		libperfsonar-regulartesting-perl
 Requires:		libperfsonar-perl
+Obsoletes:      perl-perfSONAR_PS-RegularTesting
+Provides:       perl-perfSONAR_PS-RegularTesting
 
 %description
 The perfSONAR Regular Testing package allows the configuration of regular
@@ -50,22 +51,19 @@ rm -rf %{buildroot}
 mkdir -p /var/lib/perfsonar/regulartesting
 chown perfsonar:perfsonar /var/lib/perfsonar/regulartesting
 
-#Update config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
-if [ -L "%{config_base}/regulartesting.conf" ]; then
-    echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf will be moved to %{config_base}/regulartesting.conf in 3.6. Update configuration management software as soon as possible. "
-elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing.conf" ]; then
-    mv %{config_base}/regulartesting.conf %{config_base}/regulartesting.conf.default
-    ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf %{config_base}/regulartesting.conf
-    sed -i "s:/var/lib/perfsonar/regular_testing:/var/lib/perfsonar/regulartesting:g" /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf
-fi
-
-#Update logging config file. For 3.5.1 will symlink to old location. In 3.6 we will move it.
-if [ -L "%{config_base}/regulartesting-logger.conf" ]; then
-    echo "WARN: /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf will be moved to %{config_base}/regulartesting-logger.conf in 3.6. Update configuration management software as soon as possible. "
-elif [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf" ]; then
-    mv %{config_base}/regulartesting-logger.conf %{config_base}/regulartesting-logger.conf.default
-    ln -s /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
-    sed -i "s:regular_testing.log:regulartesting.log:g" /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf
+if [ "$1" = "1" ]; then
+     # clean install, check for pre 3.5.1 files
+    if [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing.conf" ]; then
+        mv %{config_base}/regulartesting.conf %{config_base}/regulartesting.conf.default
+        mv /opt/perfsonar_ps/regular_testing/etc/regular_testing.conf %{config_base}/regulartesting.conf
+        sed -i "s:/var/lib/perfsonar/regular_testing:/var/lib/perfsonar/regulartesting:g" %{config_base}/regulartesting.conf
+    fi
+    
+    if [ -e "/opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf" ]; then
+        mv %{config_base}/regulartesting-logger.conf %{config_base}/regulartesting-logger.conf.default
+        mv /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
+        sed -i "s:regular_testing.log:regulartesting.log:g" %{config_base}/regulartesting-logger.conf
+    fi
 fi
 
 /sbin/chkconfig --add perfsonar-regulartesting
