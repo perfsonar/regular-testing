@@ -30,19 +30,19 @@ make dist
 To start the service run:
 
 ```bash
-/etc/init.d/regular_testing start
+/etc/init.d/perfsonar-regulartesting start
 ```
 
 To stop the service run:
 
 ```bash
-/etc/init.d/regular_testing stop
+/etc/init.d/perfsonar-regulartesting stop
 ```
 
 To restart the service run:
 
 ```bash
-/etc/init.d/regular_testing restart
+/etc/init.d/perfsonar-regulartesting restart
 ```
 
 ##Using the *shared* Submodule
