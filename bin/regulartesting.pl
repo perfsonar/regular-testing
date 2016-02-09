@@ -16,9 +16,9 @@ use POSIX qw(setsid);
 use perfSONAR_PS::RegularTesting::Master;
 use perfSONAR_PS::RegularTesting::Utils::ConfigFile qw(parse_file);
 
-my $CONFIG_FILE = "$RealBin/../etc/regular_testing.conf";
+my $CONFIG_FILE = "$RealBin/../etc/regulartesting.conf";
 my $PID_DIR  = "/var/run";
-my $PID_FILE = "regular_testing.pid";
+my $PID_FILE = "regulartesting.pid";
 my $LOGGER_CONF;
 my $DEBUGFLAG;
 my $DAEMONIZE;

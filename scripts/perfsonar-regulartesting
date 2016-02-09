@@ -6,21 +6,21 @@
 # description: perfSONAR Regular Testing
 #
 
-PREFIX=/opt/perfsonar_ps/regular_testing
+PREFIX=/usr/lib/perfsonar
 BINDIR=${PREFIX}/bin
-CONFDIR=${PREFIX}/etc
+CONFDIR=/etc/perfsonar
 RUNDIR=/var/run
 
-CONFFILE=${CONFDIR}/regular_testing.conf
-LOGGERFILE=${CONFDIR}/regular_testing-logger.conf
-PIDFILE=regular_testing.pid
+CONFFILE=${CONFDIR}/regulartesting.conf
+LOGGERFILE=${CONFDIR}/regulartesting-logger.conf
+PIDFILE=regulartesting.pid
 
 USER=perfsonar
 GROUP=perfsonar
 
 FULL_PIDFILE=${RUNDIR}/${PIDFILE}
 
-PERFSONAR="${BINDIR}/daemon --config=${CONFFILE} --pidfile=${PIDFILE} --piddir=${RUNDIR} --logger=${LOGGERFILE} --user=${USER} --group=${GROUP} --daemonize"
+PERFSONAR="${BINDIR}/regulartesting.pl --config=${CONFFILE} --pidfile=${PIDFILE} --piddir=${RUNDIR} --logger=${LOGGERFILE} --user=${USER} --group=${GROUP} --daemonize"
 
 ERROR=0
 ARGV="$@"
@@ -51,7 +51,7 @@ do
 
 	if $PERFSONAR ; then
 	    echo "$0 $ARG: perfSONAR Regular Testing started"
-            touch /var/lock/subsys/regular_testing
+            touch /var/lock/subsys/perfsonar-regulartesting
 	else
 	    echo "$0 $ARG: perfSONAR Regular Testing could not be started"
 	    ERROR=3
@@ -64,7 +64,7 @@ do
 	fi
 	if kill $PID ; then
 	    echo "$0 $ARG: perfSONAR Regular Testing stopped"
-            rm /var/lock/subsys/regular_testing
+            rm /var/lock/subsys/perfsonar-regulartesting
 	else
 	    echo "$0 $ARG: perfSONAR Regular Testing could not be stopped"
 	    ERROR=4
