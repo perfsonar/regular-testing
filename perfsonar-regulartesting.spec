@@ -64,6 +64,13 @@ if [ "$1" = "1" ]; then
         mv /opt/perfsonar_ps/regular_testing/etc/regular_testing-logger.conf %{config_base}/regulartesting-logger.conf
         sed -i "s:regular_testing.log:regulartesting.log:g" %{config_base}/regulartesting-logger.conf
     fi
+    
+    #pre 3.5.1 only, stop the old service since the old rpms did not restart on install 
+    if [ -e /etc/init.d/regular_testing ]; then
+        /etc/init.d/regular_testing stop
+        /sbin/chkconfig --del regular_testing
+        /etc/init.d/%{init_script_1} restart
+    fi
 fi
 
 /sbin/chkconfig --add perfsonar-regulartesting
