@@ -8,7 +8,7 @@ default:
 	@echo No need to build the package. Just run \"make install\"
 
 dist:
-	mkdir /tmp/$(PACKAGE)-$(VE/Users/alake/Programming/Perl/perfSONAR/regular-testing/MakefileRSION).$(RELEASE)
+	mkdir /tmp/$(PACKAGE)-$(VERSION).$(RELEASE)
 	tar ch -T MANIFEST | tar x -C /tmp/$(PACKAGE)-$(VERSION).$(RELEASE)
 	cd /tmp/$(PACKAGE)-$(VERSION).$(RELEASE) && ln -s doc/LICENSE LICENSE
 	cd /tmp/$(PACKAGE)-$(VERSION).$(RELEASE) && ln -s doc/INSTALL INSTALL
