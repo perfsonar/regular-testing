@@ -2,13 +2,13 @@ PACKAGE=perfsonar-regulartesting
 ROOTPATH=/usr/lib/perfsonar
 CONFIGPATH=/etc/perfsonar
 VERSION=3.5.1
-RELEASE=0.1.a1
+RELEASE=0.2.rc1
 
 default:
 	@echo No need to build the package. Just run \"make install\"
 
 dist:
-	mkdir /tmp/$(PACKAGE)-$(VERSION).$(RELEASE)
+	mkdir /tmp/$(PACKAGE)-$(VE/Users/alake/Programming/Perl/perfSONAR/regular-testing/MakefileRSION).$(RELEASE)
 	tar ch -T MANIFEST | tar x -C /tmp/$(PACKAGE)-$(VERSION).$(RELEASE)
 	cd /tmp/$(PACKAGE)-$(VERSION).$(RELEASE) && ln -s doc/LICENSE LICENSE
 	cd /tmp/$(PACKAGE)-$(VERSION).$(RELEASE) && ln -s doc/INSTALL INSTALL
