@@ -4,7 +4,7 @@
 # init scripts must be located in the 'scripts' directory
 %define init_script_1 perfsonar-regulartesting
 
-%define relnum   0.3.rc1 
+%define relnum   0.4.rc1 
 
 Name:			perfsonar-regulartesting
 Version:		3.5.1
