@@ -51,7 +51,8 @@ do
 
 	if $PERFSONAR ; then
 	    echo "$0 $ARG: perfSONAR Regular Testing started"
-            touch /var/lock/subsys/perfsonar-regulartesting
+	    touch /var/lock/subsys/perfsonar-regulartesting
+	    ERROR=0
 	else
 	    echo "$0 $ARG: perfSONAR Regular Testing could not be started"
 	    ERROR=3
@@ -64,7 +65,7 @@ do
 	fi
 	if kill $PID ; then
 	    echo "$0 $ARG: perfSONAR Regular Testing stopped"
-            rm /var/lock/subsys/perfsonar-regulartesting
+	    rm /var/lock/subsys/perfsonar-regulartesting
 	else
 	    echo "$0 $ARG: perfSONAR Regular Testing could not be stopped"
 	    ERROR=4
@@ -74,8 +75,9 @@ do
     	$0 stop; echo "waiting..."; sleep 10; $0 start;
 	;;
     status)
-        echo $STATUS
-        ;;
+	    echo $STATUS
+	    [ $RUNNING -eq 0 ] && ERROR=3
+	;;
     *)
 	echo "usage: $0 (start|stop|restart|help)"
 	cat <<EOF
