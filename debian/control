@@ -10,8 +10,9 @@ Vcs-Browser: https://code.google.com/p/perfsonar-ps/source/browse?repo=default
 
 Package: perfsonar-regulartesting
 Architecture: all
-Depends: perl, libperfsonar-perl, perfsonar-common, liblog-dispatch-perl,
- liblog-dispatch-filerotate-perl, ${misc:Depends}
+Depends: perl, libperfsonar-regulartesting-perl, libperfsonar-perl,
+ perfsonar-common, liblog-dispatch-perl, liblog-dispatch-filerotate-perl,
+ ${misc:Depends}
 Description: perfSONAR Regular Testing
  The perfSONAR-PS Regular Testing package allows the configuration
  of regular tests whose results are stored in a perfSONAR Measurement
