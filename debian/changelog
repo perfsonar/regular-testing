@@ -1,15 +1,15 @@
-perfsonar-regulartesting (3.5.1~5.rc1-1~bpo70+1) UNRLEASED; urgency=low
+perfsonar-regulartesting (3.5.1-1~bpo70+1) perfsonar-wheezy-release; urgency=low
 
-  * Backport to Wheezy
+  * Backport to Wheezy.
 
- -- Antoine Delvaux <adelvaux@man.poznan.pl>  Thu, 18 Feb 2016 17:18:50 +0000
+ -- Antoine Delvaux <adelvaux@man.poznan.pl>  Fri, 04 Mar 2016 11:05:20 +0100
 
-perfsonar-regulartesting (3.5.1~5.rc1-1) UNRLEASED; urgency=low
+perfsonar-regulartesting (3.5.1-1) perfsonar-jessie-release; urgency=low
 
   * Port to Jessie
   * Adding libperfsonar-regulartesting-perl as a dependency
 
- -- Antoine Delvaux <adelvaux@man.poznan.pl>  Thu, 18 Feb 2016 17:12:53 +0000
+ -- Antoine Delvaux <adelvaux@man.poznan.pl>  Fri, 04 Mar 2016 11:03:50 +0100
 
 perfsonar-regulartesting (3.5-1) perfsonar-wheezy-release; urgency=low
 
