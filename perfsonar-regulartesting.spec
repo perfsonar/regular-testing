@@ -8,7 +8,7 @@
 
 Name:			perfsonar-regulartesting
 Version:		3.5.1.1
-Release:		%{relnum}
+Release:		%{relnum}%{?dist}
 Summary:		perfSONAR Regular Testing
 License:		Distributable, see LICENSE
 Group:			Development/Libraries
