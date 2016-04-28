@@ -113,7 +113,7 @@ fi
 %config(noreplace) %{config_base}/*
 %attr(0755,perfsonar,perfsonar) %{install_base}/bin/*
 %if 0%{?el7}
-%{_unitdir}/%{init_script_1}.service
+%attr(0644,root,root) %{_unitdir}/%{init_script_1}.service
 %else
 %attr(0755,perfsonar,perfsonar) /etc/init.d/*
 %endif
