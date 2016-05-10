@@ -1,0 +1,11 @@
+[Unit]
+Description=perfSONAR Regular Testing
+After=network.target
+
+[Service]
+Type=forking
+PIDFile=/var/run/regulartesting.pid
+ExecStart=/usr/lib/perfsonar/bin/regulartesting.pl --config=/etc/perfsonar/regulartesting.conf --logger=/etc/perfsonar/regulartesting-logger.conf --user=perfsonar --group=perfsonar --daemonize
+
+[Install]
+WantedBy=multi-user.target
