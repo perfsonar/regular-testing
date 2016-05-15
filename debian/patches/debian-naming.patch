@@ -1,6 +1,6 @@
 --- a/bin/regulartesting.pl
 +++ b/bin/regulartesting.pl
-@@ -16,9 +16,9 @@
+@@ -16,7 +16,7 @@
  use perfSONAR_PS::RegularTesting::Master;
  use perfSONAR_PS::RegularTesting::Utils::ConfigFile qw(parse_file);
  
@@ -9,5 +9,3 @@
  my $PID_DIR  = "/var/run";
  my $PID_FILE = "regulartesting.pid";
  my $LOGGER_CONF;
- my $DEBUGFLAG;
- my $DAEMONIZE;
