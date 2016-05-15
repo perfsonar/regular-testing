@@ -5,3 +5,4 @@ dependencies
 etc/regulartesting-logger.conf
 etc/regulartesting.conf
 scripts/perfsonar-regulartesting
+scripts/perfsonar-regulartesting.service
