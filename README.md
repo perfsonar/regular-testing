@@ -1,4 +1,4 @@
-| CentOS        | [![Build Status (CentOS)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/buildStatus/icon?job=perfsonar-regulartesting-centos)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/view/Debian/job/perfsonar-regulartesting-centos/) | Debian      | [![Build Status (Debian)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/buildStatus/icon?job=regular-testing-daemon-debian-source)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/view/Debian/job/regular-testing-daemon-debian-source/) |
+| CentOS        | [![Build Status (CentOS)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/buildStatus/icon?job=perfsonar-regulartesting-centos)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/view/Debian/job/perfsonar-regulartesting-centos/) | Debian      | [![Build Status (Debian)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/buildStatus/icon?job=regular-testing-debian-source)](https://perfsonar-dev3.grnoc.iu.edu/jenkins/view/Debian/job/regular-testing-debian-source/) |
 | -------------|-------------|-------------|-------------|
 
 # perfSONAR Regular Testing
